@@ -1,0 +1,1774 @@
+﻿"question","answer"
+"Compare the mean monthly federal funds effective rate to the monthly inflation rate expressed as a percentage based on the consumer price index for urban consumers since 1970","with cpi_data as (SELECT date,
+                         value,
+                         lag(value) OVER (ORDER BY date) as prev_value
+                  FROM   financial_data_package.cybersyn.financial_fred_timeseries
+                  WHERE  variable_name ilike '%Consumer Price Index%Urban Consumers%'
+                     and date >= '1970-01-01'), inflation_rate as (SELECT date,
+                                                     (value - prev_value) / prev_value * 100 as monthly_inflation_rate
+                                              FROM   cpi_data
+                                              WHERE  prev_value is not null), mean_federal_funds_rate as (SELECT date_trunc('month', date) as month,
+                                                                   avg(value) as mean_federal_funds_rate
+                                                            FROM   financial_data_package.cybersyn.financial_fred_timeseries
+                                                            WHERE  variable_name = 'Federal Funds Effective Rate'
+                                                               and date >= '1970-01-01'
+                                                            GROUP BY month)
+SELECT inflation_rate.date,
+       inflation_rate.monthly_inflation_rate,
+       mean_federal_funds_rate.mean_federal_funds_rate
+FROM   inflation_rate join mean_federal_funds_rate
+        ON inflation_rate.date = mean_federal_funds_rate.month
+ORDER BY inflation_rate.date;"
+"What are the bank branches in the zip code with the most number of bank branches, excluding none values?","SELECT *
+FROM   financial_data_package.cybersyn.financial_branch_entities
+WHERE  id_zip = (SELECT id_zip
+                 FROM   financial_data_package.cybersyn.financial_branch_entities
+                 WHERE  end_date is null
+                    and id_zip is not null
+                 GROUP BY id_zip
+                 ORDER BY count(*) desc limit 1) and end_date is null and id_zip is not null;"
+"Since 1990, how many bank branches are there annually?","SELECT count(*) as n_branches,
+       date_trunc('YEAR', start_date) as start_year
+FROM   financial_data_package.cybersyn.financial_branch_entities
+WHERE  start_date >= '1990-01-01'
+GROUP BY start_year
+ORDER BY start_year asc"
+"Calculate the annualized quarterly inflation rate, as a percentage, based on the consumer price index for urban consumers since 1970","with cpi_data as (SELECT date,
+                         value,
+                         lag(value) OVER (ORDER BY date) as prev_value
+                  FROM   financial_data_package.cybersyn.financial_fred_timeseries
+                  WHERE  variable_name ilike '%Consumer Price Index%Urban Consumers%'
+                     and date >= '1970-01-01'), quarterly_inflation as (SELECT date,
+                                                          value,
+                                                          prev_value,
+                                                          extract(year
+                                                   FROM   date) as year, extract(quarter
+                                                   FROM   date) as quarter
+                                                   FROM   cpi_data
+                                                   WHERE  prev_value is not null), quarterly_inflation_rate as (SELECT year,
+                                                                    quarter,
+                                                                    (power((value / prev_value), 1.0/3) - 1) * 100 as quarterly_inflation_rate
+                                                             FROM   quarterly_inflation)
+SELECT year,
+       quarter,
+       quarterly_inflation_rate
+FROM   quarterly_inflation_rate
+ORDER BY year, quarter;"
+"Which are the top 10 banks by the number of branches open since 1980?","with branch_counts as (SELECT id_rssd_parent,
+                              count(*) as branch_count
+                       FROM   financial_data_package.cybersyn.financial_branch_entities
+                       WHERE  start_date >= '1980-01-01'
+                       GROUP BY id_rssd_parent)
+SELECT name,
+       branch_count
+FROM   branch_counts join financial_data_package.cybersyn.financial_institution_entities
+        ON financial_institution_entities.id_rssd = branch_counts.id_rssd_parent
+ORDER BY branch_count desc limit 10;"
+"What are the first 10 rows in the FINANCIAL_INSTITUTION_ATTRIBUTES table?","SELECT VARIABLE, VARIABLE_NAME, DEFINITION, FREQUENCY, UNIT
+FROM FINANCIAL_DATA_PACKAGE.CYBERSYN.FINANCIAL_INSTITUTION_ATTRIBUTES
+LIMIT 10"
+"How many CFPB complaints were made each year?","SELECT date_trunc('YEAR', date_received) as year,
+       count(*) as count
+FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+GROUP BY year
+ORDER BY year asc"
+"Are the differences in the states' mean monthly not seasonally adjusted unemployment rates in 2008-2010 versus 2020-2022 statistically significant?","with unemployment_rate_2008_2010 as (SELECT geo_name,
+                                            avg(value) as avg_unemployment_rate_2008_2010
+                                     FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries join financial_data_package.cybersyn.geography_index
+                                             ON bureau_of_labor_statistics_employment_timeseries.geo_id = geography_index.geo_id
+                                     WHERE  variable_name like '%Unemployment Rate%Not seasonally adjusted%'
+                                        and date between to_date('2008-01-01')
+                                        and to_date('2010-12-31')
+                                        and level = 'State'
+                                     GROUP BY geo_name), unemployment_rate_2020_2022 as (SELECT geo_name,
+                                                           avg(value) as avg_unemployment_rate_2020_2022
+                                                    FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries join financial_data_package.cybersyn.geography_index
+                                                            ON bureau_of_labor_statistics_employment_timeseries.geo_id = geography_index.geo_id
+                                                    WHERE  variable_name like '%Unemployment Rate%Not seasonally adjusted%'
+                                                       and date between to_date('2020-01-01')
+                                                       and to_date('2022-12-31')
+                                                       and level = 'State'
+                                                    GROUP BY geo_name)
+SELECT avg(difference) as avg_difference,
+       stddev_pop(difference) / sqrt(count(*)) as standard_error,
+       avg(difference) / (stddev_pop(difference) / sqrt(count(*))) as t_statistic,
+       count(*) as num_states
+FROM   (SELECT u1.geo_name,
+               u1.avg_unemployment_rate_2008_2010,
+               u2.avg_unemployment_rate_2020_2022,
+               u2.avg_unemployment_rate_2020_2022 - u1.avg_unemployment_rate_2008_2010 as difference
+        FROM   unemployment_rate_2008_2010 u1 join unemployment_rate_2020_2022 u2
+                ON u1.geo_name = u2.geo_name) as differences
+WHERE  not difference is null;"
+"What are the names of the countries in the European region?","SELECT n.n_name AS country
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON r.r_regionkey = n.n_regionkey
+WHERE r.r_name = 'EUROPE'"
+"Which are the states with the highest mean monthly not seasonally adjusted unemployment rates in 2008-2010 and 2020-2022?","SELECT geo_name,
+       avg(value) as avg_unemployment_rate
+FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries join financial_data_package.cybersyn.geography_index
+        ON bureau_of_labor_statistics_employment_timeseries.geo_id = geography_index.geo_id
+WHERE  variable_name like '%Unemployment Rate%Not seasonally adjusted%'
+   and date between to_date('2008-01-01')
+   and to_date('2010-12-31')
+    or date between to_date('2020-01-01')
+   and to_date('2022-12-31')
+   and level = 'State'
+GROUP BY geo_name having count(distinct case when date between to_date('2008-01-01') and to_date('2010-12-31') then 1 end) = 36 and count(distinct case when date between to_date('2020-01-01') and to_date('2022-12-31') then 1 end) = 36
+ORDER BY avg_unemployment_rate desc;"
+"What is the number of customers in each region?","SELECT r.r_name AS region, COUNT(DISTINCT c.c_custkey) AS number_of_customers
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON r.r_regionkey = n.n_regionkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON n.n_nationkey = c.c_nationkey
+GROUP BY region"
+"Calculate the monthly inflation rate as a percentage from the consumer price index for urban consumers since 1965","with cpi_data as (SELECT date,
+                         value,
+                         lag(value) OVER (ORDER BY date) as prev_value
+                  FROM   financial_data_package.cybersyn.financial_fred_timeseries
+                  WHERE  variable_name ilike '%Consumer Price Index%Urban Consumers%'
+                     and date >= '1965-01-01')
+SELECT date,
+       value as cpi,
+       (value - prev_value) / prev_value * 100 as monthly_inflation_rate
+FROM   cpi_data
+WHERE  prev_value is not null
+ORDER BY date;"
+"Count credit card complaints by month by company since 2012","SELECT company,
+       DATE_TRUNC('month', date_received) AS month,
+       COUNT(1)                           AS credit_card_complaint
+FROM financial_data_package.cybersyn.financial_cfpb_complaint
+WHERE product ILIKE '%card%'
+  AND date_received >= '2012-01-01'
+GROUP BY company, month"
+"How many new branches were opened by which banks in 2022","SELECT id_rssd_parent,
+       count(*)
+FROM   financial_data_package.cybersyn.financial_branch_entities
+WHERE  start_date >= '2022-01-01'
+GROUP BY id_rssd_parent
+ORDER BY count(*) desc;"
+"What are the names of the top six customers with the highest total sales?","SELECT c.c_name AS customer_name, SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY total_sales DESC
+LIMIT 6"
+"Compare the states with the mean monthly not seasonally adjusted unemployment rates in 2008-2010 versus 2020-2022?","with unemployment_rate_2008_2010 as (SELECT geo_name,
+                                            avg(value) as avg_unemployment_rate
+                                     FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries join financial_data_package.cybersyn.geography_index
+                                             ON bureau_of_labor_statistics_employment_timeseries.geo_id = geography_index.geo_id
+                                     WHERE  variable_name like '%Unemployment Rate%Not seasonally adjusted%'
+                                        and date between to_date('2008-01-01')
+                                        and to_date('2010-12-31')
+                                        and level = 'State'
+                                     GROUP BY geo_name), unemployment_rate_2020_2022 as (SELECT geo_name,
+                                                           avg(value) as avg_unemployment_rate
+                                                    FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries join financial_data_package.cybersyn.geography_index
+                                                            ON bureau_of_labor_statistics_employment_timeseries.geo_id = geography_index.geo_id
+                                                    WHERE  variable_name like '%Unemployment Rate%Not seasonally adjusted%'
+                                                       and date between to_date('2020-01-01')
+                                                       and to_date('2022-12-31')
+                                                       and level = 'State'
+                                                    GROUP BY geo_name)
+SELECT a.geo_name,
+       a.avg_unemployment_rate as avg_unemployment_rate_2008_2010,
+       b.avg_unemployment_rate as avg_unemployment_rate_2020_2022
+FROM   unemployment_rate_2008_2010 a join unemployment_rate_2020_2022 b
+        ON a.geo_name = b.geo_name
+ORDER BY a.geo_name;"
+"Which banks have the most uninsured deposits?","with latest_uninsured as (SELECT id_rssd,
+                                 1 - value as pct_uninsured
+                          FROM   financial_data_package.cybersyn.financial_institution_timeseries
+                          WHERE  variable = 'ASSET'
+                             and date = '2022-12-31')
+SELECT name,
+       pct_uninsured,
+       ent.is_active
+FROM   financial_data_package.cybersyn.financial_institution_timeseries as ts
+    INNER JOIN financial_data_package.cybersyn.financial_institution_attributes as att
+        ON (ts.variable = att.variable)
+    INNER JOIN financial_data_package.cybersyn.financial_institution_entities as ent
+        ON (ts.id_rssd = ent.id_rssd)
+    INNER JOIN latest_uninsured
+        ON (latest_uninsured.id_rssd = ts.id_rssd)
+WHERE  ts.date = '2022-12-31'
+   and att.variable_name = '% Insured (Estimated)'
+   and att.frequency = 'Quarterly'
+   and ent.is_active = true
+ORDER BY pct_uninsured desc limit 10;"
+"How many CFPB complaints of each product were made each year?","SELECT date_trunc('YEAR', date_received) as year,
+       product,
+       count(*) as count
+FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+GROUP BY year, product
+ORDER BY year asc, count desc"
+"Sample 10 states in the USA and compare their mean monthly not seasonally adjusted unemployment rates in 2008-2010 versus 2020-2022","with unemployment_rate_2008_2010 as (SELECT geo_name,
+                                            avg(value) as avg_unemployment_rate
+                                     FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries join financial_data_package.cybersyn.geography_index
+                                             ON bureau_of_labor_statistics_employment_timeseries.geo_id = geography_index.geo_id
+                                     WHERE  variable_name like '%Unemployment Rate%Not seasonally adjusted%'
+                                        and date between '2008-01-01'
+                                        and '2010-12-31'
+                                        and level = 'State'
+                                     GROUP BY geo_name), unemployment_rate_2020_2022 as (SELECT geo_name,
+                                                           avg(value) as avg_unemployment_rate
+                                                    FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries join financial_data_package.cybersyn.geography_index
+                                                            ON bureau_of_labor_statistics_employment_timeseries.geo_id = geography_index.geo_id
+                                                    WHERE  variable_name like '%Unemployment Rate%Not seasonally adjusted%'
+                                                       and date between '2020-01-01'
+                                                       and '2022-12-31'
+                                                       and level = 'State'
+                                                    GROUP BY geo_name), sample_states as (SELECT geo_name
+                                      FROM   financial_data_package.cybersyn.geography_index sample (10)
+                                      WHERE  level = 'State')
+-- 10% random sample of states
+SELECT sample_states.geo_name,
+       u1.avg_unemployment_rate as avg_unemployment_rate_2008_2010,
+       u2.avg_unemployment_rate as avg_unemployment_rate_2020_2022
+FROM   sample_states
+    LEFT JOIN unemployment_rate_2008_2010 u1
+        ON sample_states.geo_name = u1.geo_name
+    LEFT JOIN unemployment_rate_2020_2022 u2
+        ON sample_states.geo_name = u2.geo_name
+ORDER BY sample_states.geo_name;"
+"Compare the federal funds effective rate, as a percentage to the annualized monthly inflation rate expressed as a percentage based on the consumer price index for urban consumers since 1970","with cpi_data as (SELECT date,
+                         value,
+                         lag(value) OVER (ORDER BY date) as prev_value
+                  FROM   financial_data_package.cybersyn.financial_fred_timeseries
+                  WHERE  variable_name ilike '%Consumer Price Index%Urban Consumers%'
+                     and date >= '1970-01-01'), inflation_rate as (SELECT date,
+                                                     (value - prev_value) / prev_value * 100 as monthly_inflation_rate
+                                              FROM   cpi_data
+                                              WHERE  prev_value is not null), federal_funds_rate as (SELECT date,
+                                                              value as federal_funds_rate
+                                                       FROM   financial_data_package.cybersyn.financial_fred_timeseries
+                                                       WHERE  variable_name = 'Federal Funds Effective Rate'
+                                                          and date >= '1970-01-01')
+SELECT inflation_rate.date,
+       100*federal_funds_rate.federal_funds_rate as federal_funds_rate,
+       (power((1 + inflation_rate.monthly_inflation_rate / 100),
+              12) - 1) * 100 as annualized_inflation_rate
+FROM   inflation_rate join federal_funds_rate
+        ON inflation_rate.date = federal_funds_rate.date
+ORDER BY inflation_rate.date;"
+"How many complaints were submitted via each method?","SELECT submitted_via,
+       count(*) as count
+FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+GROUP BY submitted_via
+ORDER BY count desc"
+"Among the top 10 companies in terms of the total number of complaints received between 2018 and 2022 by CFPB, what is the percentage breakdown of the various companies' responses to customers in each year?","The corrected SQL code is:
+
+```
+WITH top_10_companies AS (
+    SELECT company,
+           COUNT(*) AS complaints_count
+    FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+    WHERE  date_received BETWEEN '2018-01-01' AND '2022-12-31'
+    GROUP BY company
+    ORDER BY complaints_count DESC LIMIT 10
+), 
+company_responses AS (
+    SELECT company,
+           company_response_to_consumer,
+           DATE_TRUNC('YEAR', date_received) AS year,
+           COUNT(*) AS response_count
+    FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+    WHERE  date_received BETWEEN '2018-01-01' AND '2022-12-31' AND company IN (SELECT company FROM top_10_companies)
+    GROUP BY company, company_response_to_consumer, year, company, company_response_to_consumer, year
+),
+response_count AS (
+    SELECT company,
+           company_response_to_consumer,
+           year,
+           SUM(response_count) AS response_count
+    FROM   company_responses
+    GROUP BY company, company_response_to_consumer, year
+)
+SELECT company,
+       company_response_to_consumer,
+       year,
+       response_count * 100.0 / SUM(response_count) OVER (PARTITION BY company, year) AS percentage
+FROM   response_count
+ORDER BY company, year, percentage DESC
+``` 
+
+Explanation:
+
+The issue with the initial query is that the `response_count` column was not included in the `GROUP BY` clause of the `company_responses` subquery. To correct this, we can add `response_count` to the `GROUP BY` clause of the `company_responses` subquery.
+
+However, this will cause an error in the final `SELECT` statement, since `response_count` is not a valid column to group by. To fix this, we can create a new subquery called `response_count` that groups by `company`, `company_response_to_consumer`, and `year`, and sums up the `response_count` column. We can then use this subquery in the final `SELECT` statement instead of `company_responses`."
+"Which are the five biggest banks by deposits","with latest_deposits as (SELECT id_rssd,
+                                value
+                         FROM   financial_data_package.cybersyn.financial_institution_timeseries
+                         WHERE  variable = 'DEP'
+                            and date = '2022-12-31'), active_banks as (SELECT *
+                                           FROM   financial_data_package.cybersyn.financial_institution_entities
+                                           WHERE  is_active = true)
+SELECT name,
+       value
+FROM   active_banks
+    INNER JOIN latest_deposits
+        ON (latest_deposits.id_rssd = active_banks.id_rssd)
+ORDER BY value desc limit 5;"
+"Which are the states with the highest number of branch closures in 2022?","SELECT state_abbreviation,
+       count(*) as n_closures
+FROM   financial_data_package.cybersyn.financial_branch_entities
+WHERE  end_date between '2022-01-01'
+   and '2022-12-31'
+GROUP BY state_abbreviation
+ORDER BY n_closures desc"
+"Since 2020, which banks opened at least 3 new branches in states they were new to, and how many new states were there for each bank?  ","with new_branches as (SELECT id_rssd_parent,
+                             state_abbreviation,
+                             count(*) as new_branch_count
+                      FROM   financial_data_package.cybersyn.financial_branch_entities
+                      WHERE  start_date >= '2020-01-01'
+                      GROUP BY id_rssd_parent, state_abbreviation), pre2020_branches as (SELECT id_rssd_parent,
+                                                                          state_abbreviation
+                                                                   FROM   financial_data_package.cybersyn.financial_branch_entities
+                                                                   WHERE  start_date < '2020-01-01'
+                                                                      and end_date is null
+                                                                      and state_abbreviation is not null
+                                                                   GROUP BY id_rssd_parent, state_abbreviation)
+SELECT bank_names.name,
+       count(*) as new_state_count
+FROM   new_branches
+    INNER JOIN financial_data_package.cybersyn.financial_institution_entities as bank_names
+        ON (new_branches.id_rssd_parent = bank_names.id_rssd)
+    LEFT JOIN pre2020_branches
+        ON (new_branches.id_rssd_parent = pre2020_branches.id_rssd_parent and
+           new_branches.state_abbreviation = pre2020_branches.state_abbreviation)
+WHERE  pre2020_branches.id_rssd_parent is null
+GROUP BY bank_names.name having count(*) >= 3
+ORDER BY new_state_count desc;"
+"Calculate the annualized monthly inflation rate as a percentage from the consumer price index for urban consumers since 1965","WITH cpi_data AS (
+  SELECT date,
+         value,
+         LAG(value) OVER (ORDER BY date) AS prev_value
+  FROM financial_data_package.cybersyn.financial_fred_timeseries
+  WHERE variable_name ILIKE '%Consumer Price Index%Urban Consumers%'
+    AND date >= '1965-01-01'
+),
+
+subquery AS (
+  SELECT date,
+         value,
+         LAG(value) OVER (ORDER BY date) AS prev_value,
+         LAG(date) OVER (ORDER BY date) AS prev_date
+  FROM cpi_data
+)
+
+SELECT date,
+       (POWER((value / prev_value), 1.0/12) - 1) * 100 AS annualized_inflation_rate
+FROM subquery
+WHERE prev_value IS NOT NULL
+ORDER BY date;"
+"Create a cumulative frequency distribution of the number of complaints received by CFPB against Equifax in 2022","with equifax_2022_complaints as (SELECT count(*) as n_complaints
+                                 FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                                 WHERE  company = 'Equifax'
+                                    and date_received between '2022-01-01'
+                                    and '2022-12-31')
+SELECT n_complaints,
+       count(*) as frequency,
+       sum(count(*)) OVER (ORDER BY n_complaints asc) as cumulative_frequency
+FROM   equifax_2022_complaints
+GROUP BY n_complaints
+ORDER BY n_complaints asc"
+"How many of the new branches that were opened since 2020 are from banks new to the state? ","with new_branches as (SELECT id_rssd_parent,
+                             count(*) as new_branch_count
+                      FROM   financial_data_package.cybersyn.financial_branch_entities
+                      WHERE  start_date >= '2020-01-01'
+                      GROUP BY id_rssd_parent), bank_names as (SELECT id_rssd,
+                                                name
+                                         FROM   financial_data_package.cybersyn.financial_institution_entities), pre2020_branches as (SELECT id_rssd_parent,
+                                                                                                    state_abbreviation
+                                                                                             FROM   financial_data_package.cybersyn.financial_branch_entities
+                                                                                             WHERE  start_date < '2020-01-01'
+                                                                                                and end_date is null
+                                                                                                and state_abbreviation is not null
+                                                                                             GROUP BY id_rssd_parent, state_abbreviation)
+SELECT name,
+       new_branch_count
+FROM   bank_names
+    INNER JOIN new_branches
+        ON (bank_names.id_rssd = new_branches.id_rssd_parent)
+    LEFT JOIN pre2020_branches
+        ON (new_branches.id_rssd_parent = pre2020_branches.id_rssd_parent)
+WHERE  pre2020_branches.id_rssd_parent is null
+ORDER BY new_branch_count desc;"
+"On average how many CFBP complaints are there by company?","SELECT company,
+       count(*) as complaints_count
+FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+GROUP BY company
+ORDER BY complaints_count desc"
+"What are the states with the highest mean monthly not seasonally adjusted unemployment rates since 2020?","SELECT geo_name,
+       avg(value) as avg_unemployment_rate
+FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries join financial_data_package.cybersyn.geography_index
+        ON bureau_of_labor_statistics_employment_timeseries.geo_id = geography_index.geo_id
+WHERE  variable_name like '%Unemployment Rate%Not seasonally adjusted%'
+   and date >= to_date('2020-01-01')
+   and level = 'State'
+GROUP BY geo_name
+ORDER BY avg_unemployment_rate desc"
+"In 2021, how many new branches have banks opened by state?","with new_branches as (SELECT state_abbreviation,
+                             count(*) as new_branch_count
+                      FROM   financial_data_package.cybersyn.financial_branch_entities
+                      WHERE  start_date >= '2021-01-01'
+                      GROUP BY state_abbreviation)
+SELECT state_abbreviation,
+       new_branch_count
+FROM   new_branches
+ORDER BY new_branch_count desc;"
+"Among the top 10 most complained companies between 2017 and 2022 by CFPB, what are the percentages of each company's various responses to customers?","with top_10_companies as (SELECT company,
+                                 count(*) as complaints_count
+                          FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                          WHERE  date_received between '2017-01-01'
+                             and '2022-12-31'
+                          GROUP BY company
+                          ORDER BY complaints_count desc limit 10), company_responses as (SELECT company,
+                                                                       company_response_to_consumer,
+                                                                       count(*) as response_count
+                                                                FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                                                                WHERE  date_received between '2017-01-01'
+                                                                   and '2022-12-31'
+                                                                   and company in (SELECT company
+                                                                                FROM   top_10_companies)
+                                                                GROUP BY company, company_response_to_consumer)
+SELECT company,
+       company_response_to_consumer,
+       response_count,
+       response_count * 100.0 / sum(response_count) OVER (PARTITION BY company) as percentage
+FROM   company_responses
+ORDER BY company, percentage desc"
+"What is the 3 month running average of each states' mean monthly not seasonally adjusted unemployment rates, expressed in percentage, between 2007 to 2022?","with monthly_unemployment_rates as (SELECT g.geo_name,
+                                           b.date,
+                                           avg(b.value) as avg_unemployment_rate
+                                    FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries as b join financial_data_package.cybersyn.geography_index as g
+                                            ON b.geo_id = g.geo_id
+                                    WHERE  b.variable_name like '%Unemployment Rate%Not seasonally adjusted%'
+                                       and b.date between '2007-01-01'
+                                       and '2022-12-31'
+                                       and g.level = 'State'
+                                    GROUP BY g.geo_name, b.date)
+SELECT geo_name,
+       date,
+       avg(avg_unemployment_rate) OVER (PARTITION BY geo_name
+                                        ORDER BY date rows between 1 preceding and 1 following) as three_month_running_avg,
+       100 * avg(avg_unemployment_rate) OVER (PARTITION BY geo_name
+                                              ORDER BY date rows between 1 preceding and 1 following) / avg(avg_unemployment_rate) OVER (PARTITION BY geo_name) - 100 as three_month_running_avg_pct_change
+FROM   monthly_unemployment_rates
+ORDER BY geo_name, date;"
+"Compare the seasonally adjusted Consumer Price Index for all Urban Consumers to the Federal Funds Effective Rate on the last day of each month ","with cpi as (SELECT date_trunc('month', date) as month,
+                    last_value(value) OVER (ORDER BY date) as cpi
+             FROM   financial_data_package.cybersyn.financial_fred_timeseries
+             WHERE  variable like '%Consumer Price Index%Urban Consumers%Seasonally adjusted%'
+             ORDER BY month), federal_funds_effective_rate as (SELECT date_trunc('month', date) as month,
+                                                         last_value(value) OVER (ORDER BY date) as rate
+                                                  FROM   financial_data_package.cybersyn.financial_fred_timeseries
+                                                  WHERE  variable = 'Federal Funds Effective Rate'
+                                                  ORDER BY month)
+SELECT cpi.month,
+       cpi.cpi,
+       federal_funds_effective_rate.rate
+FROM   cpi
+    INNER JOIN federal_funds_effective_rate
+        ON (cpi.month = federal_funds_effective_rate.month);"
+"What is the count of line items purchased with each discount rate in each region?","SELECT
+  r.r_name AS region_name,
+  l.l_discount AS discount,
+  COUNT(*) AS count
+FROM
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON c.c_nationkey = n.n_nationkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r ON n.n_regionkey = r.r_regionkey
+GROUP BY
+  region_name,
+  discount
+ORDER BY
+  region_name,
+  discount"
+"Since 1990, how many bank branches are opened and closed annually?","with branches_opened as (SELECT count(*) as n_branches_opened,
+                                date_trunc('YEAR', start_date) as start_year
+                         FROM   financial_data_package.cybersyn.financial_branch_entities
+                         WHERE  start_date >= '1990-01-01'
+                         GROUP BY start_year), branches_closed as (SELECT count(*) as n_branches_closed,
+                                                 date_trunc('YEAR', end_date) as end_year
+                                          FROM   financial_data_package.cybersyn.financial_branch_entities
+                                          WHERE  end_date >= '1990-01-01'
+                                          GROUP BY end_year)
+SELECT coalesce(branches_opened.start_year, branches_closed.end_year) as year,
+       branches_opened.n_branches_opened,
+       branches_closed.n_branches_closed
+FROM   branches_opened full
+    OUTER JOIN branches_closed
+        ON branches_opened.start_year = branches_closed.end_year
+ORDER BY year asc"
+"Among the top 10 companies in terms of the total number of complaints received between 2017 and 2022 by CFPB, what are the percentages of each company's various responses to customers?","with top_10_companies as (SELECT company,
+                                 count(*) as complaints_count
+                          FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                          WHERE  date_received between '2017-01-01'
+                             and '2022-12-31'
+                          GROUP BY company
+                          ORDER BY complaints_count desc limit 10), company_responses as (SELECT company,
+                                                                       company_response_to_consumer,
+                                                                       count(*) as response_count
+                                                                FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                                                                WHERE  date_received between '2017-01-01'
+                                                                   and '2022-12-31'
+                                                                   and company in (SELECT company
+                                                                                FROM   top_10_companies)
+                                                                GROUP BY company, company_response_to_consumer)
+SELECT company,
+       company_response_to_consumer,
+       response_count,
+       response_count * 100.0 / sum(response_count) OVER (PARTITION BY company) as percentage
+FROM   company_responses
+ORDER BY company, percentage desc"
+"Compare the seasonally adjusted Consumer Price Index for Urban Consumers, Bank Prime Loan Rate, and the Federal Funds Effective Rate","SELECT a.date,
+       a.value as bank_prime_loan_rate,
+       b.value as federal_funds_effective_rate,
+       c.value as consumer_price_index
+FROM   financial_data_package.cybersyn.financial_fred_timeseries a join financial_data_package.cybersyn.financial_fred_timeseries b
+        ON a.date = b.date join financial_data_package.cybersyn.financial_fred_timeseries c
+        ON a.date = c.date
+WHERE  a.variable_name like '%Bank Prime Loan Rate%'
+   and b.variable_name = 'Federal Funds Effective Rate'
+   and c.variable_name like '%Consumer Price Index%Urban Consumers%Seasonally adjusted%'
+ORDER BY a.date;"
+"Compare the Federal Funds Effective Rate to the rates set by the Bank of England, and the central banks of Canada, Japan and Mexico","SELECT b.date,
+       a.value as boe_rate,
+       c.value as boj_rate,
+       d.value as bom_rate,
+e.value as boc_rate,
+       b.value as federal_funds_rate
+FROM   financial_data_package.cybersyn.financial_fred_timeseries a join financial_data_package.cybersyn.financial_fred_timeseries b
+        ON a.date = b.date join financial_data_package.cybersyn.financial_fred_timeseries c
+        ON a.date = c.date join financial_data_package.cybersyn.financial_fred_timeseries d
+        ON a.date = d.date join financial_data_package.cybersyn.financial_fred_timeseries e
+        ON a.date = e.date
+WHERE  a.variable_name like '%Bank of England%'
+   and b.variable_name = 'Federal Funds Effective Rate'
+   and c.variable_name like '%Bank of Japan%'
+   and d.variable_name like '%Mexico%'
+and e.variable_name like '%Canada%'
+ORDER BY b.date;"
+"Between 1990 and 2023, how many bank branches were opened and closed annually?","with branches_opened as (SELECT count(*) as n_branches_opened,
+                                date_trunc('YEAR', start_date) as start_year
+                         FROM   financial_data_package.cybersyn.financial_branch_entities
+                         WHERE  start_date >= '1990-01-01'
+                            and start_date < '2023-01-01'
+                         GROUP BY start_year), branches_closed as (SELECT count(*) as n_branches_closed,
+                                                 date_trunc('YEAR', end_date) as end_year
+                                          FROM   financial_data_package.cybersyn.financial_branch_entities
+                                          WHERE  end_date >= '1990-01-01'
+                                             and end_date < '2023-01-01'
+                                          GROUP BY end_year)
+SELECT coalesce(branches_opened.start_year, branches_closed.end_year) as year,
+       branches_opened.n_branches_opened,
+       branches_closed.n_branches_closed
+FROM   branches_opened full
+    OUTER JOIN branches_closed
+        ON branches_opened.start_year = branches_closed.end_year
+WHERE  coalesce(branches_opened.start_year, branches_closed.end_year) >= '1990-01-01'
+ORDER BY year asc;"
+"Calculate the monthly inflation rate from the consumer price index for urban consumers","with cpi_data as (SELECT date,
+                         value,
+                         lag(value) OVER (ORDER BY date) as prev_value
+                  FROM   financial_data_package.cybersyn.financial_fred_timeseries
+                  WHERE  variable like '%Consumer Price Index%Urban Consumers%')
+SELECT date,
+       value as cpi,
+       (value - prev_value) / prev_value as monthly_inflation_rate
+FROM   cpi_data
+WHERE  prev_value is not null
+ORDER BY date;"
+"Compare the federal funds effective rate to the monthly inflation rate expressed as a percentage based on the consumer price index for urban consumers since 1970","with cpi_data as (SELECT date,
+                         value,
+                         lag(value) OVER (ORDER BY date) as prev_value
+                  FROM   financial_data_package.cybersyn.financial_fred_timeseries
+                  WHERE  variable_name ilike '%Consumer Price Index%Urban Consumers%'
+                     and date >= '1970-01-01'), 
+inflation_rate as (SELECT date,
+                          (value - prev_value) / prev_value * 100 as monthly_inflation_rate
+                   FROM   cpi_data
+                   WHERE  prev_value is not null), 
+federal_funds_rate as (SELECT date,
+                              value as federal_funds_rate
+                              FROM   financial_data_package.cybersyn.financial_fred_timeseries
+                              WHERE  variable_name = 'Federal Funds Effective Rate'
+                                     and date >= '1970-01-01'
+                       )
+SELECT i.date,
+       i.monthly_inflation_rate,
+       f.federal_funds_rate
+FROM   inflation_rate i join federal_funds_rate f
+        ON i.date = f.date
+ORDER BY i.date;"
+"What is the running total of CFBP complaints by product in 2022?","SELECT product,
+       date_received,
+       count(*) OVER (PARTITION BY product
+                      ORDER BY date_received) as running_total
+FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+WHERE  date_received >= '2022-01-01'
+   and date_received < '2023-01-01'
+ORDER BY product, date_received"
+"Among the top 10 financial institutions in terms of the mean number of complaints annually between 2020 and 2022, what is the distribution of the total number of complaints received annually per institution by the CFPB?","with companies_complaints as (SELECT company,
+                                     date_trunc('YEAR', date_received) as year,
+                                     count(*) as complaints_count
+                              FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                              WHERE  date_received between '2020-01-01'
+                                 and '2022-12-31'
+                              GROUP BY company, year having count(*) > 0), top_10_companies as (SELECT company,
+                                                                         avg(complaints_count) as mean_complaints_count
+                                                                  FROM   companies_complaints
+                                                                  GROUP BY company
+                                                                  ORDER BY mean_complaints_count desc limit 10)
+SELECT company,
+       date_trunc('YEAR', date_received) as year,
+       count(*) as annual_complaints_count
+FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+WHERE  company in (SELECT company
+                   FROM   top_10_companies) and date_received between '2020-01-01' and '2022-12-31'
+GROUP BY company, year"
+"How many of the new branches that were opened since 2020 are from banks new to the state, and which state are they in? ","with new_branches as (SELECT id_rssd_parent,
+                             state_abbreviation,
+                             count(*) as new_branch_count
+                      FROM   financial_data_package.cybersyn.financial_branch_entities
+                      WHERE  start_date >= '2020-01-01'
+                      GROUP BY id_rssd_parent, state_abbreviation), pre2020_branches as (SELECT id_rssd_parent,
+                                                                          state_abbreviation
+                                                                   FROM   financial_data_package.cybersyn.financial_branch_entities
+                                                                   WHERE  start_date < '2020-01-01'
+                                                                      and end_date is null
+                                                                   GROUP BY id_rssd_parent, state_abbreviation)
+SELECT new_branches.state_abbreviation,
+       new_branch_count
+FROM   new_branches
+    LEFT JOIN pre2020_branches
+        ON (new_branches.id_rssd_parent = pre2020_branches.id_rssd_parent and
+           new_branches.state_abbreviation = pre2020_branches.state_abbreviation)
+WHERE  pre2020_branches.id_rssd_parent is null
+ORDER BY new_branch_count desc;"
+"Among the top 10 companies in terms of the total number of complaints received between 2018 and 2022 by CFPB, what is the percentage breakdown of the various companies' responses to customers?","with top_10_companies as (SELECT company,
+                                 count(*) as complaints_count
+                          FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                          WHERE  date_received between '2018-01-01'
+                             and '2022-12-31'
+                          GROUP BY company
+                          ORDER BY complaints_count desc limit 10), company_responses as (SELECT company,
+                                                                       company_response_to_consumer,
+                                                                       count(*) as response_count
+                                                                FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                                                                WHERE  date_received between '2018-01-01'
+                                                                   and '2022-12-31'
+                                                                   and company in (SELECT company
+                                                                                FROM   top_10_companies)
+                                                                GROUP BY company, company_response_to_consumer)
+SELECT company,
+       company_response_to_consumer,
+       response_count,
+       response_count*100.0/sum(response_count) OVER (PARTITION BY company) as percentage
+FROM   company_responses
+ORDER BY company, percentage desc"
+"Since 2020, how many new branches have banks opened in each state?","with new_branches as (SELECT state_abbreviation,
+                             count(*) as new_branch_count
+                      FROM   financial_data_package.cybersyn.financial_branch_entities
+                      WHERE  start_date >= '2020-01-01'
+                      GROUP BY state_abbreviation)
+SELECT state_abbreviation,
+       new_branch_count
+FROM   new_branches
+ORDER BY new_branch_count desc;"
+"Among the top 10 companies in terms of the total number of complaints received between 2018 and 2022 by CFPB, what are the percentages of each company's various responses to customers?","with top_10_companies as (SELECT company,
+                                 count(*) as complaints_count
+                          FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                          WHERE  date_received between '2018-01-01'
+                             and '2022-12-31'
+                          GROUP BY company
+                          ORDER BY complaints_count desc limit 10), company_responses as (SELECT company,
+                                                                       company_response_to_consumer,
+                                                                       count(*) as response_count
+                                                                FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                                                                WHERE  date_received between '2018-01-01'
+                                                                   and '2022-12-31'
+                                                                   and company in (SELECT company
+                                                                                FROM   top_10_companies)
+                                                                GROUP BY company, company_response_to_consumer)
+SELECT company,
+       company_response_to_consumer,
+       response_count,
+       response_count * 100.0 / sum(response_count) OVER (PARTITION BY company) as percentage
+FROM   company_responses
+ORDER BY company, percentage desc"
+"Compare the seasonally adjusted Consumer Price Index for urban consumers to the Federal Funds Effective Rate","SELECT a.date,
+       a.value as cpi,
+       b.value as federal_funds_rate
+FROM   financial_data_package.cybersyn.financial_fred_timeseries a 
+INNER join financial_data_package.cybersyn.financial_fred_timeseries b
+        ON a.date = b.date
+WHERE  a.variable like '%Consumer Price Index%Urban Consumers%Seasonally adjusted%'
+   and b.variable = 'Federal Funds Effective Rate'
+ORDER BY a.date;"
+"Among the top 10 companies in terms of the total number of complaints received between 2020 and 2022 by CFPB, what are the various companies' responses to customers in each year expressed in percentage terms?","with top_10_companies as (SELECT company,
+                                 count(*) as complaints_count
+                          FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                          WHERE  date_received between '2020-01-01'
+                             and '2022-12-31'
+                          GROUP BY company
+                          ORDER BY complaints_count desc limit 10), company_responses as (SELECT company,
+                                                                       company_response_to_consumer,
+                                                                       date_trunc('YEAR', date_received) as year,
+                                                                       count(*) as response_count
+                                                                FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                                                                WHERE  date_received between '2020-01-01'
+                                                                   and '2022-12-31'
+                                                                   and company in (SELECT company
+                                                                                FROM   top_10_companies)
+                                                                GROUP BY company, company_response_to_consumer, year)
+SELECT company,
+       year,
+       company_response_to_consumer,
+       response_count * 100.0 / sum(response_count) OVER (PARTITION BY company,
+                                                                       year) as percentage
+FROM   company_responses
+ORDER BY company, year, percentage desc"
+"What are the names of the top 5 customers in terms of total sales?","SELECT c.c_name AS customer_name, SUM(l.l_quantity * l.l_extendedprice) AS total_sales
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON c.c_custkey = o.o_custkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l ON o.o_orderkey = l.l_orderkey
+GROUP BY customer_name
+ORDER BY total_sales DESC
+LIMIT 5"
+"What is the total sales and number of customers for each region?","SELECT r.r_name AS region, COUNT(DISTINCT c.c_custkey) AS number_of_customers, SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON c.c_nationkey = n.n_nationkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r ON n.n_regionkey = r.r_regionkey
+GROUP BY region"
+"What are the banks with the highest number of new branches since 2020?","The corrected SQL code is:
+
+```
+WITH new_branches AS (
+    SELECT id_rssd_parent, COUNT(*) AS new_branch_count
+    FROM financial_data_package.cybersyn.financial_branch_entities
+    WHERE start_date >= '2020-01-01'
+    GROUP BY id_rssd_parent
+), bank_names AS (
+    SELECT id_rssd, name
+    FROM financial_data_package.cybersyn.financial_institution_entities
+)
+SELECT name, new_branch_count
+FROM bank_names
+INNER JOIN new_branches ON (bank_names.id_rssd = new_branches.id_rssd_parent)
+ORDER BY new_branch_count DESC;
+```
+
+The error message was caused by the reference to an invalid column name in the `SELECT` clause of the `bank_names` subquery. The column `name_parent` does not exist in the `financial_institution_entities` table. I have corrected this by selecting the `name` column instead."
+"Calculate the total quarterly net income for the banking industry over the last four decades","SELECT att.variable_name,
+       ts.date,
+       ts.value
+FROM financial_data_package.cybersyn.financial_fred_timeseries AS ts
+JOIN financial_data_package.cybersyn.financial_fred_attributes AS att ON (ts.variable = att.variable)
+WHERE att.variable_name = 'Income and Expense: Net Income (Loss) Attributable to Bank, Not seasonally adjusted, Quarterly, USD'
+  AND ts.date >= '1984-01-01';"
+"Among the top 10 companies in terms of the total number of complaints received between 2020 and 2022 by CFPB, what are the various companies' responses to customers expressed in percentage terms?","with top_10_companies as (SELECT company,
+                                 count(*) as complaints_count
+                          FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                          WHERE  date_received between '2020-01-01'
+                             and '2022-12-31'
+                          GROUP BY company
+                          ORDER BY complaints_count desc limit 10), company_responses as (SELECT company,
+                                                                       company_response_to_consumer,
+                                                                       count(*) as response_count
+                                                                FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                                                                WHERE  date_received between '2020-01-01'
+                                                                   and '2022-12-31'
+                                                                   and company in (SELECT company
+                                                                                FROM   top_10_companies)
+                                                                GROUP BY company, company_response_to_consumer)
+SELECT company,
+       company_response_to_consumer,
+       response_count * 100.0 / sum(response_count) OVER (PARTITION BY company) as percentage
+FROM   company_responses
+ORDER BY company, percentage desc"
+"Randomly sample 10 CFPB customer complaints from the institution with the most number of complaints","SELECT company,
+       consumer_complaint_narrative
+FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+WHERE  company = (SELECT company
+                  FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                  GROUP BY company
+                  ORDER BY count(*) desc limit 1) and consumer_complaint_narrative is not null
+ORDER BY random() limit 10"
+"How many CFPB complaints were there by state?","SELECT state,
+       count(*) as count
+FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+GROUP BY state
+ORDER BY count desc"
+"What is the 30 year fixed rate mortgage average in the united states?","SELECT avg(value) as avg_rate
+FROM   financial_data_package.cybersyn.financial_fred_timeseries
+WHERE  variable = 'MORTGAGE30US'"
+"What are the first 10 rows in the FINANCIAL_BRANCH_ENTITIES table?","SELECT ID_RSSD, ID_RSSD_PARENT, NAME_PARENT, BRANCH_NAME, CATEGORY, IS_ACTIVE, START_DATE, END_DATE, ADDRESS, ADDRESS_LINE2, CITY, STATE_ABBREVIATION, ZIP_CODE, ID_COUNTRY, ID_STATE, ID_COUNTY, ID_ZIP
+FROM FINANCIAL_DATA_PACKAGE.CYBERSYN.FINANCIAL_BRANCH_ENTITIES
+LIMIT 10"
+"How many CPFB complaints of each product were made in 2022","SELECT product,
+       count(*) as count
+FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+WHERE  date_received between '2022-01-01'
+   and '2022-12-31'
+GROUP BY product
+ORDER BY count desc"
+"Among the top 5 companies in terms of the total number of complaints received between 2020 and 2022 by CFPB, what is the percentage breakdown of the various companies' responses to customers in each year?","with top_5_companies as (SELECT company,
+                                count(*) as total_complaints
+                         FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                         WHERE  date_received between '2020-01-01'
+                            and '2022-12-31'
+                         GROUP BY company
+                         ORDER BY total_complaints desc limit 5), company_responses as (SELECT company,
+                                                                      company_response_to_consumer,
+                                                                      date_trunc('year', date_received) as year,
+                                                                      count(*) as response_count
+                                                               FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                                                               WHERE  date_received between '2020-01-01'
+                                                                  and '2022-12-31'
+                                                                  and company in (SELECT company
+                                                                               FROM   top_5_companies)
+                                                               GROUP BY company, company_response_to_consumer, year)
+SELECT company,
+       year,
+       company_response_to_consumer,
+       response_count,
+       response_count*100.0/sum(response_count) OVER (PARTITION BY company,
+                                                                   year) as percentage
+FROM   company_responses
+ORDER BY company, year, percentage desc"
+"What are the first 10 rows in the GEOGRAPHY_HIERARCHY table?","SELECT PARENT_GEO_ID, GEO_ID
+FROM FINANCIAL_DATA_PACKAGE.CYBERSYN.GEOGRAPHY_HIERARCHY
+LIMIT 10"
+"What is the mean monthly not seasonally adjusted unemployment rates of Canada between 2007 and 2022","SELECT date,
+       avg(value) as avg_unemployment_rate
+FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries
+WHERE  variable_name like '%Unemployment Rate%Not seasonally adjusted%'
+   and date between '2007-01-01'
+   and '2022-12-31'
+   and geo_id like '%CA%'
+GROUP BY date
+ORDER BY date;"
+"What are the first 10 rows in the FINANCIAL_INSTITUTION_EVENTS table?","SELECT ID_RSSD_SUCCESSOR, NAME_SUCCESSOR, ACTIVE_SUCCESSOR, CATEGORY_SUCCESSOR, ID_RSSD_PREDECESSOR, NAME_PREDECESSOR, ACTIVE_PREDECESSOR, CATEGORY_PREDECESSOR, TRANSACTION_DATE, TRANSFORMATION_TYPE, MERGER_ACCOUNTING_METHOD_UTILIZED
+FROM FINANCIAL_DATA_PACKAGE.CYBERSYN.FINANCIAL_INSTITUTION_EVENTS
+LIMIT 10"
+"What are the number of countries in each region, in descending order?","SELECT r.r_name AS region_name, COUNT(DISTINCT n.n_name) AS num_countries
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r 
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON r.r_regionkey = n.n_regionkey
+GROUP BY region_name
+ORDER BY num_countries DESC"
+"What are the top 3 customers by sales ranking for each of the top 2 regions by total sales?","WITH
+  sales_by_region AS (
+    SELECT
+      r.r_name AS region_name,
+      c.c_name AS customer_name,
+      SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+    FROM
+      SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+      JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+      JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+      JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON c.c_nationkey = n.n_nationkey
+      JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r ON n.n_regionkey = r.r_regionkey
+    GROUP BY
+      region_name,
+      customer_name
+  ),
+  ranked_sales AS (
+    SELECT
+      region_name,
+      customer_name,
+      total_sales,
+      RANK() OVER (
+        PARTITION BY region_name
+        ORDER BY total_sales DESC
+      ) AS sales_rank
+    FROM
+      sales_by_region
+  )
+SELECT *
+FROM ranked_sales
+WHERE region_name IN (
+  SELECT
+    r.r_name
+  FROM
+    SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON c.c_nationkey = n.n_nationkey
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r ON n.n_regionkey = r.r_regionkey
+  GROUP BY
+    r.r_name
+  ORDER BY
+    SUM(l.l_extendedprice * (1 - l.l_discount)) DESC
+  LIMIT 2
+)
+AND sales_rank <= 3;"
+"What are the names of the top three customers in terms of total sales?","SELECT c.c_name AS customer_name, SUM(l.l_quantity * l.l_extendedprice) AS total_sales
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON c.c_custkey = o.o_custkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l ON o.o_orderkey = l.l_orderkey
+GROUP BY customer_name
+ORDER BY total_sales DESC
+LIMIT 3"
+"What are the total sales for each year for the most popular part?","SELECT 
+  TO_CHAR(o.o_orderdate, 'YYYY') AS order_year, 
+  SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM 
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.PART p ON l.l_partkey = p.p_partkey
+WHERE 
+  p.p_name = (
+    SELECT 
+      p_name 
+    FROM 
+      SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.PART 
+    JOIN 
+      SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM ON p_partkey = l_partkey 
+    GROUP BY 
+      p_name 
+    ORDER BY 
+      SUM(l_quantity) DESC 
+    LIMIT 1
+  )
+GROUP BY 
+  order_year
+ORDER BY 
+  order_year;"
+"Among the top 10 zip codes in terms of the total number of complaints received between 2018 and 2022 by CFPB, what is the percentage breakdown of the various responses to customers? ","with top_10_zip_codes as (SELECT id_zip,
+                                 count(*) as complaints_count
+                          FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                          WHERE  date_trunc('year', date_received) between '2018-01-01'
+                             and '2022-12-31'
+                          GROUP BY id_zip
+                          ORDER BY complaints_count desc limit 10), zip_code_company_responses as (SELECT id_zip,
+                                                                                company_response_to_consumer,
+                                                                                count(*) as response_count
+                                                                         FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                                                                         WHERE  date_trunc('year', date_received) between '2018-01-01'
+                                                                            and '2022-12-31'
+                                                                            and id_zip in (SELECT id_zip
+                                                                                        FROM   top_10_zip_codes)
+                                                                         GROUP BY id_zip, company_response_to_consumer)
+SELECT id_zip,
+       company_response_to_consumer,
+       response_count,
+       response_count*100.0/sum(response_count) OVER (PARTITION BY id_zip) as percentage
+FROM   zip_code_company_responses
+WHERE  id_zip in (SELECT id_zip
+                  FROM   top_10_zip_codes)
+ORDER BY id_zip, percentage desc"
+"What are the first 10 rows in the GEOGRAPHY_OVERLAPS table?","SELECT GEO_ID, OVERLAPS_WITH
+FROM FINANCIAL_DATA_PACKAGE.CYBERSYN.GEOGRAPHY_OVERLAPS
+LIMIT 10"
+"Which is the zip code with the most number of bank branches","SELECT id_zip,
+       count(*) as branch_count
+FROM   financial_data_package.cybersyn.financial_branch_entities
+WHERE  end_date is null
+GROUP BY id_zip
+ORDER BY branch_count desc limit 1;"
+"Using the BLS Price time series, calculate the monthly inflation percentage of airline fares using the consumer price index of airline fares since 1980","with airline_cpi as (SELECT date_trunc('month', date) as month,
+                            value as cpi
+                     FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_price_timeseries
+                     WHERE  variable_name ilike 'cpi%airline fares%monthly%'
+                        and date >= '1980-01-01'), monthly_inflation as (SELECT month,
+                                                        (cpi - lag(cpi) OVER (ORDER BY month)) / lag(cpi) OVER (ORDER BY month) * 100 as inflation_percentage
+                                                 FROM   airline_cpi)
+SELECT month,
+       inflation_percentage
+FROM   monthly_inflation
+WHERE  inflation_percentage is not null
+ORDER BY month;"
+"For each type of complaint made to CFPB between 2020 and 2022, what is the probability of receiving monetary relief as a company response to consumer?","with complaints_product_response as (SELECT product,
+                                            company_response_to_consumer,
+                                            count(*) as count
+                                     FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                                     WHERE  date_received between '2020-01-01'
+                                        and '2022-12-31'
+                                     GROUP BY product, company_response_to_consumer), complaints_product as (SELECT product,
+                                                                               count(*) as n_complaints
+                                                                        FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                                                                        WHERE  date_received between '2020-01-01'
+                                                                           and '2022-12-31'
+                                                                        GROUP BY product)
+SELECT r.product,
+       100*r.count/n_complaints as prob_relief
+FROM   complaints_product_response as r
+    INNER JOIN complaints_product as p
+        ON p.product = r.product
+WHERE  r.company_response_to_consumer like '% monetary relief';"
+"What are the first 10 rows in the FINANCIAL_INSTITUTION_TIMESERIES table?","SELECT ID_RSSD, VARIABLE, VARIABLE_NAME, VALUE, UNIT, DATE
+FROM FINANCIAL_DATA_PACKAGE.CYBERSYN.FINANCIAL_INSTITUTION_TIMESERIES
+LIMIT 10"
+"What are the first 10 rows in the FINANCIAL_CFPB_COMPLAINT table?","SELECT ID_ZIP, ID_STATE, PRODUCT, SUB_PRODUCT, ISSUE, SUB_ISSUE, COMPANY, CONSUMER_COMPLAINT_NARRATIVE, COMPANY_PUBLIC_RESPONSE, COMPANY_RESPONSE_TO_CONSUMER, STATE, ZIP_CODE, TAGS, CONSUMER_CONSENT_PROVIDED, SUBMITTED_VIA, CONSUMER_DISPUTED, DATE_RECEIVED, DATE_SENT_TO_COMPANY, TIMELY_RESPONSE
+FROM FINANCIAL_DATA_PACKAGE.CYBERSYN.FINANCIAL_CFPB_COMPLAINT
+LIMIT 10"
+"Compare the states mean monthly not seasonally adjusted unemployment rates in 2008-2010 versus 2020-2022 and select the 10 states with the biggest differences","with unemployment_rate_2008_2010 as (SELECT geo_name,
+                                            avg(value) as avg_unemployment_rate
+                                     FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries join financial_data_package.cybersyn.geography_index
+                                             ON bureau_of_labor_statistics_employment_timeseries.geo_id = geography_index.geo_id
+                                     WHERE  variable_name like '%Unemployment Rate%Not seasonally adjusted%'
+                                        and date between '2008-01-01'
+                                        and '2010-12-31'
+                                        and level = 'State'
+                                     GROUP BY geo_name), unemployment_rate_2020_2022 as (SELECT geo_name,
+                                                           avg(value) as avg_unemployment_rate
+                                                    FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries join financial_data_package.cybersyn.geography_index
+                                                            ON bureau_of_labor_statistics_employment_timeseries.geo_id = geography_index.geo_id
+                                                    WHERE  variable_name like '%Unemployment Rate%Not seasonally adjusted%'
+                                                       and date between '2020-01-01'
+                                                       and '2022-12-31'
+                                                       and level = 'State'
+                                                    GROUP BY geo_name), differences as (SELECT u1.geo_name,
+                                           u1.avg_unemployment_rate as avg_unemployment_rate_2008_2010,
+                                           u2.avg_unemployment_rate as avg_unemployment_rate_2020_2022,
+                                           u2.avg_unemployment_rate - u1.avg_unemployment_rate as difference
+                                    FROM   unemployment_rate_2008_2010 u1 join unemployment_rate_2020_2022 u2
+                                            ON u1.geo_name = u2.geo_name)
+SELECT geo_name,
+       avg_unemployment_rate_2008_2010,
+       avg_unemployment_rate_2020_2022,
+       difference
+FROM   differences
+ORDER BY abs(difference) desc limit 10;"
+"What are the first 10 rows in the FINANCIAL_INSTITUTION_HIERARCHY table?","SELECT ID_RSSD_PARENT, NAME_PARENT, ACTIVE_PARENT, CATEGORY_PARENT, ID_RSSD_OFFSPRING, NAME_OFFSPRING, ACTIVE_OFFSPRING, CATEGORY_OFFSPRING, RELATIONSHIP_TERMINATED, PARENT_CONTROLS_OFFSPRING, PERCENT_CONTROL_OF_OFFSPRING, RELATIONSHIP_LEVEL
+FROM FINANCIAL_DATA_PACKAGE.CYBERSYN.FINANCIAL_INSTITUTION_HIERARCHY
+LIMIT 10"
+"Using the BLS Price time series, calculate the monthly percentage change in airline fares using the consumer price index of airline fares since 1980","with airline_cpi as (SELECT date_trunc('month', date) as month,
+                            value as cpi
+                     FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_price_timeseries
+                     WHERE  variable_name ilike 'CPI%Airline Fares%Not Seasonally Adjusted%Monthly%'
+                        and date >= '1980-01-01'), monthly_percentage_change as (SELECT month,
+                                                                (cpi - lag(cpi) OVER (ORDER BY month)) / lag(cpi) OVER (ORDER BY month) * 100 as percentage_change
+                                                         FROM   airline_cpi)
+SELECT month,
+       percentage_change
+FROM   monthly_percentage_change
+WHERE  percentage_change is not null
+ORDER BY month DESC;"
+"Compare the Bank Prime Loan Rate to the Federal Funds Effective Rate","SELECT a.date,
+       a.value as bank_prime_loan_rate,
+       b.value as federal_funds_effective_rate
+FROM   financial_data_package.cybersyn.financial_fred_timeseries a join financial_data_package.cybersyn.financial_fred_timeseries b
+        ON a.date = b.date
+WHERE  a.variable_name like '%Bank Prime Loan Rate%'
+   and b.variable_name = 'Federal Funds Effective Rate'
+ORDER BY a.date;"
+"What are the first 10 rows in the FINANCIAL_INSTITUTION_ENTITIES table?","SELECT ID_RSSD, NAME, CATEGORY, IS_ACTIVE, ADDRESS, CITY, STATE_ABBREVIATION, ZIP_CODE, URL, START_DATE, END_DATE, CHARTERING_AUTHORITY, CHARTER_TYPE, FEDERAL_REGULATOR, ENTITY_TYPE, INSURER, FDIC_CERT, OCC_ID, THRIFT_ID, ID_COUNTRY, ID_STATE, ID_COUNTY, ID_ZIP, LEGAL_ENTITY_IDENTIFIER, EMPLOYER_IDENTIFICATION_NUMBER, REASON_FOR_ENTITY_TERMINATION, INTERNATIONAL_BANKING_FACILITY, NAICS_CODE, MAJORITY_OWNED_BY_MINORITY_OR_WOMEN, SPECIALIZATION_GROUP
+FROM FINANCIAL_DATA_PACKAGE.CYBERSYN.FINANCIAL_INSTITUTION_ENTITIES
+LIMIT 10"
+"What are the average hourly earnings of employees in accommodation and food services in Hawaii since 2010?","SELECT L.GEO_ID, GEO_NAME, LEVEL, VARIABLE_NAME, VALUE, DATE
+FROM financial_data_package.cybersyn.BUREAU_OF_LABOR_STATISTICS_EMPLOYMENT_TIMESERIES AS L
+INNER JOIN financial_data_package.cybersyn.GEOGRAPHY_INDEX AS G
+    ON L.GEO_ID = G.GEO_ID
+WHERE VARIABLE_NAME LIKE '%Hourly Earnings%Leisure and Hospitality: Accommodation and Food Services%' 
+AND VARIABLE_NAME LIKE '%seasonally adjusted%Monthly%'
+AND DATE > to_date('2010-01-01')
+AND GEO_NAME = 'Hawaii'"
+"What are the top 7 customers ranked by total sales?","SELECT c.c_name AS customer_name, SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY total_sales DESC
+LIMIT 7"
+"Compare the growth and decline of bank branches by state since the start of the pandemic","WITH pre_covid AS (
+    SELECT state_abbreviation,
+           COUNT(*) AS pre_covid_count
+    FROM financial_data_package.cybersyn.financial_branch_entities
+    WHERE start_date <= '2020-03-01'
+      AND (end_date >= '2020-03-01' OR end_date IS NULL)
+    GROUP BY state_abbreviation
+)
+SELECT cur.state_abbreviation,
+       pre_covid_count,
+       COUNT(*)                            AS current_count,
+       current_count / pre_covid_count - 1 AS pct_change
+FROM financial_data_package.cybersyn.financial_branch_entities AS cur
+INNER JOIN pre_covid ON (cur.state_abbreviation = pre_covid.state_abbreviation)
+WHERE end_date IS NULL
+GROUP BY cur.state_abbreviation, pre_covid_count
+ORDER BY pct_change;"
+"Sample 10 CFPB customer complaints from the institution with the most number of complaints","SELECT company,
+       consumer_complaint_narrative
+FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+WHERE  company = (SELECT company
+                  FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                  GROUP BY company
+                  ORDER BY count(*) desc limit 1) and consumer_complaint_narrative is not null limit 10"
+"Since 2020, which banks opened new branches in states they were new to, how many new branches were there in each state, and what are the names of these states?  ","with new_branches as (SELECT id_rssd_parent,
+                             state_abbreviation,
+                             count(*) as new_branch_count
+                      FROM   financial_data_package.cybersyn.financial_branch_entities
+                      WHERE  start_date >= '2020-01-01'
+                      GROUP BY id_rssd_parent, state_abbreviation), pre2020_branches as (SELECT id_rssd_parent,
+                                                                          state_abbreviation
+                                                                   FROM   financial_data_package.cybersyn.financial_branch_entities
+                                                                   WHERE  start_date < '2020-01-01'
+                                                                      and end_date is null
+                                                                      and state_abbreviation is not null
+                                                                   GROUP BY id_rssd_parent, state_abbreviation)
+SELECT bank_names.name,
+       new_branches.state_abbreviation,
+       new_branch_count
+FROM   new_branches
+    INNER JOIN financial_data_package.cybersyn.financial_institution_entities as bank_names
+        ON (new_branches.id_rssd_parent = bank_names.id_rssd)
+    LEFT JOIN pre2020_branches
+        ON (new_branches.id_rssd_parent = pre2020_branches.id_rssd_parent and
+           new_branches.state_abbreviation = pre2020_branches.state_abbreviation)
+WHERE  pre2020_branches.id_rssd_parent is null
+ORDER BY new_branch_count desc, bank_names.name;"
+"What are the annual hourly earnings of employees in the accommodation and food services sector in each state since 2000?","SELECT l.geo_id,
+       geo_name,
+       level,
+       variable_name,
+       value,
+       date
+FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries as l
+    INNER JOIN financial_data_package.cybersyn.geography_index as g
+        ON l.geo_id = g.geo_id
+WHERE  variable_name like '%Leisure and Hospitality: Accommodation and Food Services%'
+   and variable_name like '%Average Hourly Earnings%Annual%'
+   and date > to_date('2000-01-01')
+   and level = 'State'
+ORDER BY geo_name, date desc"
+"Which are the top 10 banks by the number of branches closed in 2022?","with branches_closed as (SELECT id_rssd_parent,
+                                count(*) as n_branches_closed
+                         FROM   financial_data_package.cybersyn.financial_branch_entities
+                         WHERE  end_date between '2022-01-01'
+                            and '2022-12-31'
+                         GROUP BY id_rssd_parent)
+SELECT name,
+       n_branches_closed
+FROM   branches_closed
+    INNER JOIN financial_data_package.cybersyn.financial_institution_entities as ent
+        ON (branches_closed.id_rssd_parent = ent.id_rssd)
+ORDER BY n_branches_closed desc limit 10;"
+"Since 2000, how many new branches have been opened per year?","SELECT date_trunc('YEAR', start_date) as year,
+       count(*) as n_branches_opened
+FROM   financial_data_package.cybersyn.financial_branch_entities
+WHERE  start_date >= '2000-01-01'
+GROUP BY year
+ORDER BY year asc;"
+"How many of the new branches that were opened since 2020 are from banks new to the state, and which state are they in, and what are the names of the banks? ","with new_branches as (SELECT id_rssd_parent,
+                             state_abbreviation,
+                             count(*) as new_branch_count
+                      FROM   financial_data_package.cybersyn.financial_branch_entities
+                      WHERE  start_date >= '2020-01-01'
+                      GROUP BY id_rssd_parent, state_abbreviation), pre2020_branches as (SELECT id_rssd_parent,
+                                                                          state_abbreviation
+                                                                   FROM   financial_data_package.cybersyn.financial_branch_entities
+                                                                   WHERE  start_date < '2020-01-01'
+                                                                      and end_date is null
+                                                                      and state_abbreviation is not null
+                                                                   GROUP BY id_rssd_parent, state_abbreviation)
+SELECT new_branches.state_abbreviation,
+       new_branch_count,
+       bank_names.name
+FROM   new_branches
+    INNER JOIN financial_data_package.cybersyn.financial_institution_entities as bank_names
+        ON new_branches.id_rssd_parent = bank_names.id_rssd
+    LEFT JOIN pre2020_branches
+        ON new_branches.id_rssd_parent = pre2020_branches.id_rssd_parent and
+           new_branches.state_abbreviation = pre2020_branches.state_abbreviation
+WHERE  pre2020_branches.id_rssd_parent is null
+ORDER BY new_branch_count desc, new_branches.state_abbreviation, bank_names.name;"
+"Which are the top 10 cities by the number of new branches opened in 2022?","with new_branches as (SELECT city,
+                             state_abbreviation,
+                             count(*) as new_branch_count
+                      FROM   financial_data_package.cybersyn.financial_branch_entities
+                      WHERE  start_date >= '2022-01-01'
+                      GROUP BY city, state_abbreviation)
+SELECT city || ', ' || state_abbreviation as city_state,
+       new_branch_count
+FROM   new_branches
+ORDER BY new_branch_count desc limit 10;"
+"Determine which banks have the highest percentage of uninsured deposits","WITH big_banks AS (
+    SELECT id_rssd
+    FROM financial_data_package.cybersyn.financial_institution_timeseries
+    WHERE variable = 'ASSET'
+      AND date = '2022-12-31'
+      AND value > 1E10
+)
+SELECT name,
+       1 - value AS pct_uninsured,
+       ent.is_active
+FROM financial_data_package.cybersyn.financial_institution_timeseries AS ts
+INNER JOIN financial_data_package.cybersyn.financial_institution_attributes AS att ON (ts.variable = att.variable)
+INNER JOIN financial_data_package.cybersyn.financial_institution_entities AS ent ON (ts.id_rssd = ent.id_rssd)
+INNER JOIN big_banks ON (big_banks.id_rssd = ts.id_rssd)
+WHERE ts.date = '2022-12-31'
+  AND att.variable_name = '% Insured (Estimated)'
+  AND att.frequency = 'Quarterly'
+ORDER BY pct_uninsured DESC;"
+"What is the 3 month running average of each states' mean monthly not seasonally adjusted unemployment rates, between 2007 to 2022?","with monthly_unemployment_rates as (SELECT g.geo_name,
+                                           b.date,
+                                           avg(b.value) as avg_unemployment_rate
+                                    FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries b join financial_data_package.cybersyn.geography_index g
+                                            ON b.geo_id = g.geo_id
+                                    WHERE  b.variable_name like '%Unemployment Rate%Not seasonally adjusted%'
+                                       and b.date between '2007-01-01'
+                                       and '2022-12-31'
+                                       and g.level = 'State'
+                                    GROUP BY g.geo_name, b.date)
+SELECT geo_name,
+       date,
+       avg(avg_unemployment_rate) OVER (PARTITION BY geo_name
+                                        ORDER BY date rows between 1 preceding and 1 following) as three_month_running_avg
+FROM   monthly_unemployment_rates
+ORDER BY geo_name, date;"
+"Since 2005, how many new branches have been opened per year?","SELECT date_trunc('YEAR', start_date) as year,
+       count(*) as n_branches_opened
+FROM   financial_data_package.cybersyn.financial_branch_entities
+WHERE  start_date >= '2005-01-01'
+GROUP BY year
+ORDER BY year asc;"
+"In each state, what is the percentage of existing bank branches that only began operations since 2020?","with new_branches as (SELECT state_abbreviation,
+                             count(*) as new_branch_count
+                      FROM   financial_data_package.cybersyn.financial_branch_entities
+                      WHERE  start_date >= '2020-01-01'
+                      GROUP BY state_abbreviation), all_branches as (SELECT state_abbreviation,
+                                                      count(*) as all_branch_count
+                                               FROM   financial_data_package.cybersyn.financial_branch_entities
+                                               WHERE  end_date is null
+                                               GROUP BY state_abbreviation)
+SELECT all_branches.state_abbreviation,
+       100.0 * new_branch_count / all_branch_count as pct_new_branches
+FROM   all_branches
+    INNER JOIN new_branches
+        ON (all_branches.state_abbreviation = new_branches.state_abbreviation)
+ORDER BY pct_new_branches desc"
+"How many CPFB complaints of each product were made cumulatively in 2022?","SELECT product,
+       date_trunc('month', date_received) as month,
+       count(*) OVER (PARTITION BY product,
+                                   date_trunc('month', date_received)
+                      ORDER BY date_received) as cumulative_count
+FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+WHERE  date_received >= '2022-01-01'
+   and date_received < '2023-01-01'
+ORDER BY product, month;"
+"How many bank failures are there in each year since 1945?","SELECT COUNT(NAME_PREDECESSOR) AS N_BANKS, DATE_TRUNC('YEAR', TRANSACTION_DATE) AS TRANSACTION_YEAR
+FROM FINANCIAL_DATA_PACKAGE.CYBERSYN.FINANCIAL_INSTITUTION_EVENTS
+WHERE TRANSFORMATION_TYPE = 'Failure'
+AND CATEGORY_PREDECESSOR = 'Bank'
+GROUP BY TRANSACTION_YEAR
+ORDER BY TRANSACTION_YEAR DESC"
+"Since 2010, how many new branches have been opened per year?","SELECT date_trunc('YEAR', start_date) as year,
+       count(*) as n_branches_opened
+FROM   financial_data_package.cybersyn.financial_branch_entities
+WHERE  start_date >= '2010-01-01'
+GROUP BY year
+ORDER BY year asc;"
+"What are the top 10 countries ranked by total sales, based on customer and order data?","SELECT
+  n.n_name AS country_name,
+  SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON n.n_nationkey = c.c_nationkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON c.c_custkey = o.o_custkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l ON o.o_orderkey = l.l_orderkey
+GROUP BY country_name
+ORDER BY total_sales DESC
+LIMIT 10;"
+"What are the first 10 rows in the GEOGRAPHY_INDEX table?","SELECT GEO_ID, GEO_NAME, LEVEL, ISO_NAME, ISO_ALPHA2, ISO_ALPHA3, ISO_NUMERIC_CODE, ISO_3166_2_CODE
+FROM FINANCIAL_DATA_PACKAGE.CYBERSYN.GEOGRAPHY_INDEX
+LIMIT 10"
+"Using the BLS Price time series, calculate the annualized monthly inflation percentage of airline fares using the consumer price index of airline fares since 1980","with airline_cpi as (SELECT date_trunc('month', date) as month,
+                            value as cpi
+                     FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_price_timeseries
+                     WHERE  variable_name ilike 'cpi%airline fares%monthly%'
+                        and date >= '1980-01-01'), monthly_inflation as (SELECT month,
+                                                        (power(1+ (cpi - lag(cpi) OVER (ORDER BY month)) / lag(cpi) OVER (ORDER BY month),12)-1) * 100 as inflation_percentage
+                                                 FROM   airline_cpi)
+SELECT month,
+       inflation_percentage
+FROM   monthly_inflation
+WHERE  inflation_percentage is not null
+ORDER BY month;"
+"In each state, what percentage of bank branches are new? New is defined as a branch that began operations since 2020","with new_branches as (SELECT state_abbreviation,
+                             count(*) as new_branch_count
+                      FROM   financial_data_package.cybersyn.financial_branch_entities
+                      WHERE  start_date >= '2020-01-01'
+                      GROUP BY state_abbreviation), all_branches as (SELECT state_abbreviation,
+                                                      count(*) as all_branch_count
+                                               FROM   financial_data_package.cybersyn.financial_branch_entities
+                                               WHERE  end_date is null
+                                               GROUP BY state_abbreviation)
+SELECT all_branches.state_abbreviation,
+       100.0 * new_branch_count / all_branch_count as pct_new_branches
+FROM   all_branches
+    INNER JOIN new_branches
+        ON (all_branches.state_abbreviation = new_branches.state_abbreviation)
+ORDER BY pct_new_branches desc"
+"How many of the new branches that were opened since 2020 are from banks new to the state, which state are they in, and what are the names of the banks? ","with new_branches as (SELECT id_rssd_parent,
+                             state_abbreviation,
+                             count(*) as new_branch_count
+                      FROM   financial_data_package.cybersyn.financial_branch_entities
+                      WHERE  start_date >= '2020-01-01'
+                      GROUP BY id_rssd_parent, state_abbreviation), pre2020_branches as (SELECT id_rssd_parent,
+                                                                          state_abbreviation
+                                                                   FROM   financial_data_package.cybersyn.financial_branch_entities
+                                                                   WHERE  start_date < '2020-01-01'
+                                                                      and end_date is null
+                                                                      and state_abbreviation is not null
+                                                                   GROUP BY id_rssd_parent, state_abbreviation)
+SELECT bank_names.name,
+       new_branches.state_abbreviation,
+       new_branch_count
+FROM   new_branches
+    INNER JOIN financial_data_package.cybersyn.financial_institution_entities as bank_names
+        ON new_branches.id_rssd_parent = bank_names.id_rssd
+    LEFT JOIN pre2020_branches
+        ON new_branches.id_rssd_parent = pre2020_branches.id_rssd_parent and
+           new_branches.state_abbreviation = pre2020_branches.state_abbreviation
+WHERE  pre2020_branches.id_rssd_parent is null
+ORDER BY new_branch_count desc, new_branches.state_abbreviation, bank_names.name;"
+"Create a cumulative frequency distribution of the number of complaints received by CFPB against the financial institution with the most number of complaints in 2022","with fiwmc_2022_complaints as (SELECT count(*) as n_complaints
+                               FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                               WHERE  company = (SELECT company
+                                                 FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                                                 WHERE  date_received between '2022-01-01'
+                                                    and '2022-12-31'
+                                                 GROUP BY company
+                                                 ORDER BY count(*) desc limit 1) and date_received between '2022-01-01' and '2022-12-31')
+SELECT n_complaints,
+       count(*) as frequency,
+       sum(count(*)) OVER (ORDER BY n_complaints asc) as cumulative_frequency
+FROM   fiwmc_2022_complaints
+GROUP BY n_complaints
+ORDER BY n_complaints asc"
+"What is the average number of items per order?","SELECT AVG(total_items) AS avg_order_size
+FROM (
+  SELECT o.o_orderkey AS order_id, SUM(l.l_quantity) AS total_items
+  FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l ON o.o_orderkey = l.l_orderkey
+  GROUP BY o.o_orderkey
+)"
+"What are the top two regions by total sales of all orders?","SELECT
+  r.r_name AS region_name,
+  SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON r.r_regionkey = n.n_regionkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON n.n_nationkey = c.c_nationkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON c.c_custkey = o.o_custkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l ON o.o_orderkey = l.l_orderkey
+GROUP BY region_name
+ORDER BY total_sales DESC
+LIMIT 2;"
+"How many bank failures are there in each year since 1930?","SELECT count(name_predecessor) as n_banks,
+       date_trunc('YEAR', transaction_date) as transaction_year
+FROM   financial_data_package.cybersyn.financial_institution_events
+WHERE  transformation_type = 'Failure'
+   and category_predecessor = 'Bank'
+   and transaction_date >= '1930-01-01'
+GROUP BY transaction_year
+ORDER BY transaction_year desc"
+"Compare the states mean monthly not seasonally adjusted unemployment rates in 2008-2010 versus 2020-2022?","with unemployment_rate_2008_2010 as (SELECT geo_name,
+                                            avg(value) as avg_unemployment_rate
+                                     FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries join financial_data_package.cybersyn.geography_index
+                                             ON bureau_of_labor_statistics_employment_timeseries.geo_id = geography_index.geo_id
+                                     WHERE  variable_name like '%Unemployment Rate%Not seasonally adjusted%'
+                                        and date between to_date('2008-01-01')
+                                        and to_date('2010-12-31')
+                                        and level = 'State'
+                                     GROUP BY geo_name), unemployment_rate_2020_2022 as (SELECT geo_name,
+                                                           avg(value) as avg_unemployment_rate
+                                                    FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries join financial_data_package.cybersyn.geography_index
+                                                            ON bureau_of_labor_statistics_employment_timeseries.geo_id = geography_index.geo_id
+                                                    WHERE  variable_name like '%Unemployment Rate%Not seasonally adjusted%'
+                                                       and date between to_date('2020-01-01')
+                                                       and to_date('2022-12-31')
+                                                       and level = 'State'
+                                                    GROUP BY geo_name)
+SELECT a.geo_name,
+       a.avg_unemployment_rate as avg_unemployment_rate_2008_2010,
+       b.avg_unemployment_rate as avg_unemployment_rate_2020_2022
+FROM   unemployment_rate_2008_2010 a join unemployment_rate_2020_2022 b
+        ON a.geo_name = b.geo_name
+ORDER BY a.geo_name;"
+"What are the total sales for each region?","SELECT r.r_name as region,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey join snowflake_sample_data.tpch_sf1.region r
+        ON n.n_regionkey = r.r_regionkey
+GROUP BY region
+ORDER BY total_sales desc;"
+"How many complaints of each product did CPFB receive in 2022?","SELECT product,
+       count(*) as count
+FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+WHERE  date_received between '2022-01-01'
+   and '2022-12-31'
+GROUP BY product
+ORDER BY count desc"
+"How many CPFB complaints of each product were made cumulatively for each month in 2022?","SELECT product,
+       date_trunc('month', date_received) as month,
+       count(*) OVER (PARTITION BY product,
+                                   date_trunc('month', date_received)
+                      ORDER BY date_received) as cumulative_count
+FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+WHERE  date_received >= '2022-01-01'
+   and date_received < '2023-01-01'
+ORDER BY product, month;"
+"What are the first 10 rows in the FINANCIAL_FRED_TIMESERIES table?","SELECT GEO_ID, VARIABLE, VARIABLE_NAME, DATE, VALUE, UNIT
+FROM FINANCIAL_DATA_PACKAGE.CYBERSYN.FINANCIAL_FRED_TIMESERIES
+LIMIT 10"
+"What are the top 5 customers in terms of total sales?","SELECT c.c_name AS customer_name, SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY total_sales DESC
+LIMIT 5"
+"Between 1990 and 2022, how many bank branches were opened and closed annually?","with branches_opened as (SELECT count(*) as n_branches_opened,
+                                date_trunc('YEAR', start_date) as start_year
+                         FROM   financial_data_package.cybersyn.financial_branch_entities
+                         WHERE  start_date >= '1990-01-01'
+                            and start_date < '2022-01-01'
+                         GROUP BY start_year), branches_closed as (SELECT count(*) as n_branches_closed,
+                                                 date_trunc('YEAR', end_date) as end_year
+                                          FROM   financial_data_package.cybersyn.financial_branch_entities
+                                          WHERE  end_date >= '1990-01-01'
+                                             and end_date < '2022-01-01'
+                                          GROUP BY end_year)
+SELECT coalesce(branches_opened.start_year, branches_closed.end_year) as year,
+       branches_opened.n_branches_opened,
+       branches_closed.n_branches_closed
+FROM   branches_opened full
+    OUTER JOIN branches_closed
+        ON branches_opened.start_year = branches_closed.end_year
+WHERE  coalesce(branches_opened.start_year, branches_closed.end_year) >= '1990-01-01'
+ORDER BY year asc;"
+"Among the top 10 zip codes in terms of the total number of complaints received between 2018 and 2022 by CFPB, what is the percentage breakdown of the various companies' responses to customers? ","with top_10_zip_codes as (SELECT id_zip,
+                                 count(*) as complaints_count
+                          FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                          WHERE  date_trunc('year', date_received) between '2018-01-01'
+                             and '2022-12-31'
+                          GROUP BY id_zip
+                          ORDER BY complaints_count desc limit 10), zip_code_complaints as (SELECT id_zip,
+                                                                         company,
+                                                                         count(*) as complaints_count
+                                                                  FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                                                                  WHERE  date_trunc('year', date_received) between '2018-01-01'
+                                                                     and '2022-12-31'
+                                                                     and id_zip in (SELECT id_zip
+                                                                                 FROM   top_10_zip_codes)
+                                                                  GROUP BY id_zip, company), zip_code_company_responses as (SELECT id_zip,
+                                                                 company,
+                                                                 company_response_to_consumer,
+                                                                 count(*) as response_count
+                                                          FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                                                          WHERE  date_trunc('year', date_received) between '2018-01-01'
+                                                             and '2022-12-31'
+                                                             and id_zip in (SELECT id_zip
+                                                                         FROM   top_10_zip_codes)
+                                                          GROUP BY id_zip, company, company_response_to_consumer)
+SELECT id_zip,
+       company,
+       company_response_to_consumer,
+       response_count,
+       response_count*100.0/sum(response_count) OVER (PARTITION BY id_zip,
+                                                                   company) as percentage
+FROM   zip_code_company_responses
+WHERE  id_zip in (SELECT id_zip
+                  FROM   top_10_zip_codes)
+ORDER BY id_zip asc, company asc, percentage desc"
+"Which are the top 10 banks by the number of new branches opened in 2022?","with new_branches as (SELECT id_rssd_parent,
+                             count(*) as new_branch_count
+                      FROM   financial_data_package.cybersyn.financial_branch_entities
+                      WHERE  start_date >= '2022-01-01'
+                      GROUP BY id_rssd_parent), bank_names as (SELECT id_rssd,
+                                                name
+                                         FROM   financial_data_package.cybersyn.financial_institution_entities)
+SELECT bank_names.name,
+       new_branch_count
+FROM   new_branches
+    INNER JOIN bank_names
+        ON new_branches.id_rssd_parent = bank_names.id_rssd
+ORDER BY new_branch_count desc limit 10;"
+"How many seasonally adjusted employees are there in the accommodation and food services sector in each state since 2015?","SELECT l.geo_id,
+       geo_name,
+       level,
+       variable_name,
+       value,
+       date
+FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries as l
+    INNER JOIN financial_data_package.cybersyn.geography_index as g
+        ON l.geo_id = g.geo_id
+WHERE  variable_name like '%Leisure and Hospitality: Accommodation and Food Services%'
+   and variable_name like '%Total employment, including self-employed, Not seasonally adjusted, Monthly, Persons, NSA%'
+   and date > to_date('2015-01-01')
+   and level = 'State'
+ORDER BY geo_name, date desc"
+"Sample a CFPB customer complaint","SELECT consumer_complaint_narrative
+FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+WHERE  consumer_complaint_narrative is not null limit 1"
+"What is the CPI for tuition in the USA?","SELECT value as cpi_tuition
+FROM   financial_data_package.cybersyn.financial_fred_timeseries
+WHERE  variable = 'CPIAUCSL'
+   and lower(variable_name) like '%tuition%'
+ORDER BY date desc limit 1"
+"Since 2018, how many new branches have been opened per year?","SELECT date_trunc('YEAR', start_date) as year,
+       count(*) as n_branches_opened
+FROM   financial_data_package.cybersyn.financial_branch_entities
+WHERE  start_date >= '2018-01-01'
+GROUP BY year
+ORDER BY year asc;"
+"What are the top 10 customers in terms of total sales?","SELECT c.c_name AS customer_name, SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY total_sales DESC
+LIMIT 10"
+"Compare the Bank Prime Loan Rate to the Federal Funds Effective Rate and the spread between the two","SELECT a.date,
+       a.value as bank_prime_loan_rate,
+       b.value as federal_funds_effective_rate,
+       a.value - b.value as spread
+FROM   financial_data_package.cybersyn.financial_fred_timeseries a join financial_data_package.cybersyn.financial_fred_timeseries b
+        ON a.date = b.date
+WHERE  a.variable_name like '%Bank Prime Loan Rate%'
+   and b.variable_name = 'Federal Funds Effective Rate'
+ORDER BY a.date;"
+"Which is the zip code with the most number of bank branches, excluding none values?","SELECT id_zip,
+       count(*) as branch_count
+FROM   financial_data_package.cybersyn.financial_branch_entities
+WHERE  end_date is null
+   and id_zip is not null
+GROUP BY id_zip
+ORDER BY branch_count desc limit 1;"
+"Sample 10 states and compare the states mean monthly not seasonally adjusted unemployment rates in 2008-2010 versus 2020-2022","with unemployment_rate_2008_2010 as (SELECT geo_name,
+                                            avg(value) as avg_unemployment_rate
+                                     FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries join financial_data_package.cybersyn.geography_index
+                                             ON bureau_of_labor_statistics_employment_timeseries.geo_id = geography_index.geo_id
+                                     WHERE  variable_name like '%Unemployment Rate%Not seasonally adjusted%'
+                                        and date between '2008-01-01'
+                                        and '2010-12-31'
+                                        and level = 'State'
+                                     GROUP BY geo_name), unemployment_rate_2020_2022 as (SELECT geo_name,
+                                                           avg(value) as avg_unemployment_rate
+                                                    FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries join financial_data_package.cybersyn.geography_index
+                                                            ON bureau_of_labor_statistics_employment_timeseries.geo_id = geography_index.geo_id
+                                                    WHERE  variable_name like '%Unemployment Rate%Not seasonally adjusted%'
+                                                       and date between '2020-01-01'
+                                                       and '2022-12-31'
+                                                       and level = 'State'
+                                                    GROUP BY geo_name), sample_states as (SELECT geo_name
+                                      FROM   financial_data_package.cybersyn.geography_index
+                                      SAMPLE (10)
+                                      WHERE  level = 'State')
+-- 10% random sample of states
+SELECT sample_states.geo_name,
+       u1.avg_unemployment_rate as avg_unemployment_rate_2008_2010,
+       u2.avg_unemployment_rate as avg_unemployment_rate_2020_2022
+FROM   sample_states
+    LEFT JOIN unemployment_rate_2008_2010 u1
+        ON sample_states.geo_name = u1.geo_name
+    LEFT JOIN unemployment_rate_2020_2022 u2
+        ON sample_states.geo_name = u2.geo_name
+ORDER BY sample_states.geo_name;"
+"Compare the Federal Funds Effective Rate to the rates set by the Bank of England, and the central banks of Japan and Mexico","SELECT b.date,
+       a.value as boe_rate,
+       c.value as boj_rate,
+       d.value as banxico_rate,
+       b.value as federal_funds_rate
+FROM   financial_data_package.cybersyn.financial_fred_timeseries a join financial_data_package.cybersyn.financial_fred_timeseries b
+        ON a.date = b.date join financial_data_package.cybersyn.financial_fred_timeseries c
+        ON a.date = c.date join financial_data_package.cybersyn.financial_fred_timeseries d
+        ON a.date = d.date
+WHERE  a.variable_name like '%Bank of England%'
+   and b.variable_name = 'Federal Funds Effective Rate'
+   and c.variable_name like '%Bank of Japan%'
+   and d.variable_name like '%Mexico%'
+ORDER BY b.date;"
+"What are the first 10 rows in the FINANCIAL_FRED_ATTRIBUTES table?","SELECT VARIABLE, VARIABLE_NAME, VARIABLE_GROUP, SEASONALLY_ADJUSTED, FREQUENCY, UNIT, MEASUREMENT_METHOD
+FROM FINANCIAL_DATA_PACKAGE.CYBERSYN.FINANCIAL_FRED_ATTRIBUTES
+LIMIT 10"
+"Which are the top 10 banks by the number of branches that have been open for more than 40 years?","with branch_lifetimes as (SELECT id_rssd_parent,
+                                 count(*) as branch_lifetime
+                          FROM   financial_data_package.cybersyn.financial_branch_entities
+                          WHERE  start_date < '2022-01-01'
+                             and (end_date >= '2022-01-01'
+                              or end_date is null)
+                          GROUP BY id_rssd_parent)
+SELECT name,
+       branch_lifetime
+FROM   branch_lifetimes join financial_data_package.cybersyn.financial_institution_entities
+        ON financial_institution_entities.id_rssd = branch_lifetimes.id_rssd_parent
+WHERE  branch_lifetime >= 40
+ORDER BY branch_lifetime desc limit 10;"
+"Since 2020, how many new branches have banks opened by state and by bank type?","with new_branches as (SELECT state_abbreviation,
+                             category,
+                             count(*) as new_branch_count
+                      FROM   financial_data_package.cybersyn.financial_branch_entities
+                      WHERE  start_date >= '2020-01-01'
+                      GROUP BY state_abbreviation, category)
+SELECT state_abbreviation,
+       category,
+       new_branch_count
+FROM   new_branches
+ORDER BY state_abbreviation, category, new_branch_count desc;"
+"What is the 3 month running average of each states' mean monthly not seasonally adjusted unemployment rates between 2007 to 2022?","with monthly_unemployment_rates as (SELECT g.geo_name,
+                                           b.date,
+                                           avg(b.value) as avg_unemployment_rate
+                                    FROM   financial_data_package.cybersyn.bureau_of_labor_statistics_employment_timeseries as b join financial_data_package.cybersyn.geography_index as g
+                                            ON b.geo_id = g.geo_id
+                                    WHERE  b.variable_name like '%Unemployment Rate%Not seasonally adjusted%'
+                                       and b.date between '2007-01-01'
+                                       and '2022-12-31'
+                                       and g.level = 'State'
+                                    GROUP BY g.geo_name, b.date)
+SELECT geo_name AS STATE,
+       date,
+       100*avg(avg_unemployment_rate) OVER (PARTITION BY geo_name
+                                        ORDER BY date rows between 1 preceding and 1 following) as UNEMPLOYMENT_RATE
+FROM   monthly_unemployment_rates
+ORDER BY STATE, date;"
+"Since 2020, how many new branches have banks opened by state?","with new_branches as (SELECT state_abbreviation,
+                             count(*) as new_branch_count
+                      FROM   financial_data_package.cybersyn.financial_branch_entities
+                      WHERE  start_date >= '2020-01-01'
+                      GROUP BY state_abbreviation)
+SELECT state_abbreviation,
+       new_branch_count
+FROM   new_branches
+ORDER BY new_branch_count desc;"
+"Using the BLS Price time series, calculate the monthly inflation percentage of airline fares using the consumer price index of airline fares ","with airline_cpi as (SELECT date_trunc('month', date) as month,
+                            value as cpi
+                     FROM   financial_data_package.CYBERSYN.BUREAU_OF_LABOR_STATISTICS_PRICE_TIMESERIES
+                     WHERE  variable_name ilike 'cpi%airline fares%'), 
+monthly_inflation as (
+SELECT month,
+       (cpi - lag(cpi) OVER (ORDER BY month)) / lag(cpi) OVER (ORDER BY month) * 100 as inflation_percentage
+FROM   airline_cpi)
+SELECT month,
+       inflation_percentage
+FROM   monthly_inflation
+WHERE  inflation_percentage is not null
+ORDER BY month;"
+"Compare the seasonally adjusted Consumer Price Index for all Urban Consumers to the Federal Funds Effective Rate  ","SELECT b.date,
+       a.value as cpi,
+       b.value as federal_funds_rate
+FROM   financial_data_package.cybersyn.financial_fred_timeseries a join financial_data_package.cybersyn.financial_fred_timeseries b
+        ON a.date = b.date
+WHERE  a.variable like '%Consumer Price Index%Urban Consumers%Seasonally adjusted%'
+   and b.variable = 'Federal Funds Effective Rate'
+ORDER BY b.date;"
+"Create a cumulative frequency distribution of the number of complaints received by CFPB against the financial institution with the most number of complaints in 2022 on a weekly basis","with fiwmc_2022_complaints as (SELECT count(*) as n_complaints
+                               FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                               WHERE  company = (SELECT company
+                                                 FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                                                 WHERE  date_received between '2022-01-01'
+                                                    and '2022-12-31'
+                                                 GROUP BY company
+                                                 ORDER BY count(*) desc limit 1) and date_received between '2022-01-01' and '2022-12-31')
+SELECT date_trunc('week', date_received) as week,
+       count(*) as frequency,
+       sum(count(*)) OVER (ORDER BY week asc) as cumulative_frequency
+FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+WHERE  company = (SELECT company
+                  FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+                  WHERE  date_received between '2022-01-01'
+                     and '2022-12-31'
+                  GROUP BY company
+                  ORDER BY count(*) desc limit 1) and date_received between '2022-01-01' and '2022-12-31'
+GROUP BY week
+ORDER BY week asc"
+"What are the names of the top 3 customers with the highest total sales?","SELECT c.c_name AS customer_name, SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY total_sales DESC
+LIMIT 3"
+"What are the total sales by country for the top 10 countries in descending order?","SELECT
+  n.n_name AS country_name,
+  SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON n.n_nationkey = c.c_nationkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON c.c_custkey = o.o_custkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l ON o.o_orderkey = l.l_orderkey
+GROUP BY
+  country_name
+ORDER BY
+  total_sales DESC
+LIMIT 10;"
+"Calculate the monthly inflation rate as a percentage from the consumer price index for urban consumers","with cpi_data as (SELECT date,
+                         value,
+                         lag(value) OVER (ORDER BY date) as prev_value
+                  FROM   financial_data_package.cybersyn.financial_fred_timeseries
+                  WHERE  variable_name ilike '%Consumer Price Index%Urban Consumers%')
+SELECT date,
+       value as cpi,
+       (value - prev_value) / prev_value * 100 as monthly_inflation_rate_pct
+FROM   cpi_data
+WHERE  prev_value is not null
+ORDER BY date;"
+"What is the average discount for each region?","SELECT
+  r.r_name AS region_name,
+  AVG(l.l_discount) AS avg_discount
+FROM
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON c.c_nationkey = n.n_nationkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r ON n.n_regionkey = r.r_regionkey
+GROUP BY
+  region_name;"
+"Calculate the annualized monthly inflation rate as a percentage since 1980 based on the consumer price index for urban consumers","with cpi_data as (SELECT date,
+                         value,
+                         lag(value) OVER (ORDER BY date) as prev_value
+                  FROM   financial_data_package.cybersyn.financial_fred_timeseries
+                  WHERE  variable_name ilike '%Consumer Price Index%Urban Consumers%'
+                     and date >= '1980-01-01'), subquery as (SELECT date,
+                                               value,
+                                               lag(value) OVER (ORDER BY date) as prev_value,
+                                               lag(date) OVER (ORDER BY date) as prev_date
+                                        FROM   cpi_data)
+SELECT date,
+       (power((value / prev_value), 1.0/12) - 1) * 100 as annualized_inflation_rate
+FROM   subquery
+WHERE  prev_value is not null
+ORDER BY date;"
+"What is the running total of CPFB complaints of each product in 2022?","SELECT product,
+       date_received,
+       count(*) OVER (PARTITION BY product
+                      ORDER BY date_received) as running_total
+FROM   financial_data_package.cybersyn.financial_cfpb_complaint
+WHERE  date_received >= '2022-01-01'
+   and date_received < '2023-01-01'
+ORDER BY product, date_received"
+"Since 2021, which cities have seen an increase in branches and by which banks?","WITH pre_2021_branches AS (
+    SELECT id_rssd_parent,
+           city,
+           COUNT(*) AS pre_2021_count
+    FROM financial_data_package.cybersyn.financial_branch_entities
+    WHERE start_date < '2021-01-01'
+      AND (end_date >= '2021-01-01' OR end_date IS NULL)
+    GROUP BY id_rssd_parent, city
+), post_2021_branches AS (
+    SELECT id_rssd_parent,
+           city,
+           COUNT(*) AS post_2021_count
+    FROM financial_data_package.cybersyn.financial_branch_entities
+    WHERE start_date >= '2021-01-01'
+    GROUP BY id_rssd_parent, city
+)
+SELECT post_2021_branches.city,
+       bank_names.name,
+       post_2021_count - pre_2021_count AS branch_change
+FROM post_2021_branches
+INNER JOIN financial_data_package.cybersyn.financial_institution_entities AS bank_names ON (post_2021_branches.id_rssd_parent = bank_names.id_rssd)
+LEFT JOIN pre_2021_branches ON (post_2021_branches.id_rssd_parent = pre_2021_branches.id_rssd_parent AND post_2021_branches.city = pre_2021_branches.city)
+WHERE post_2021_count > pre_2021_count
+ORDER BY branch_change DESC;"

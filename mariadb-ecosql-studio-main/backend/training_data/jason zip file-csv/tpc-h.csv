@@ -1,0 +1,1640 @@
+﻿"question","answer"
+"what are the top customers by sales in europe","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey join snowflake_sample_data.tpch_sf1.region r
+        ON n.n_regionkey = r.r_regionkey
+WHERE  r.r_name = 'EUROPE'
+GROUP BY customer_name
+ORDER BY total_sales desc"
+"total sales for each region?","SELECT r.r_name as region,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey join snowflake_sample_data.tpch_sf1.region r
+        ON n.n_regionkey = r.r_regionkey
+GROUP BY region
+ORDER BY total_sales desc;"
+"What is the average annual revenue for 'Brand#23' parts that are shipped in 'MED BOX', where the quantity shipped is less than 20% of the average quantity shipped for that part?","SELECT 
+	AVG(l_extendedprice * (1 - l_discount)) as avg_annual_revenue
+FROM 
+	SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+	JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.PART p ON l.l_partkey = p.p_partkey
+WHERE 
+	p_brand = 'Brand#23' AND p_container = 'MED BOX' AND l_quantity < (0.2 * (
+		SELECT 
+			AVG(l_quantity) 
+		FROM 
+			SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+			JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.PART p ON l.l_partkey = p.p_partkey
+		WHERE 
+			p_brand = 'Brand#23' AND p_container = 'MED BOX'
+	))
+GROUP BY 
+	extract(year from l_shipdate)"
+"show me the pie chart of the market share in customer table","SELECT count(*) as total_customers
+FROM   snowflake_sample_data.tpch_sf1.customer;"
+"Name the 10 countries having the most customer. Show the name of the countries and the number of customers.","SELECT n.n_name as country_name,
+       count(c.c_custkey) as number_of_customers
+FROM   snowflake_sample_data.tpch_sf1.nation n join snowflake_sample_data.tpch_sf1.customer c
+        ON n.n_nationkey = c.c_nationkey
+GROUP BY country_name
+ORDER BY number_of_customers desc limit 10;"
+"What are the names of the countries in the European region?","SELECT n.n_name AS country
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON r.r_regionkey = n.n_regionkey
+WHERE r.r_name = 'EUROPE'"
+"What is the number of customers in each region?","SELECT r.r_name AS region, COUNT(DISTINCT c.c_custkey) AS number_of_customers
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON r.r_regionkey = n.n_regionkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON n.n_nationkey = c.c_nationkey
+GROUP BY region"
+"Who are the top 100 customers who placed orders with a total quantity of items exceeding 300, and what are the details of these orders?","SELECT 
+  c.c_custkey, 
+  c.c_name, 
+  SUM(l.l_quantity) AS total_quantity, 
+  o.o_orderkey, 
+  o.o_orderdate, 
+  o.o_totalprice, 
+  o.o_comment
+FROM 
+  snowflake_sample_data.tpch_sf1.customer c
+  JOIN snowflake_sample_data.tpch_sf1.orders o ON c.c_custkey = o.o_custkey
+  JOIN snowflake_sample_data.tpch_sf1.lineitem l ON o.o_orderkey = l.l_orderkey
+GROUP BY 
+  c.c_custkey, 
+  c.c_name, 
+  o.o_orderkey, 
+  o.o_orderdate, 
+  o.o_totalprice, 
+  o.o_comment
+HAVING 
+  SUM(l.l_quantity) > 300
+ORDER BY 
+  total_quantity DESC
+LIMIT 
+  100"
+"Who is the top customer in each region?","with ranked_sales as (SELECT r.r_name as region_name,
+                             c.c_name as customer_name,
+                             sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales,
+                             rank() OVER (PARTITION BY r.r_name
+                                          ORDER BY sum(l.l_extendedprice * (1 - l.l_discount)) desc) as sales_rank
+                      FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+                              ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+                              ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+                              ON c.c_nationkey = n.n_nationkey join snowflake_sample_data.tpch_sf1.region r
+                              ON n.n_regionkey = r.r_regionkey
+                      GROUP BY region_name, customer_name)
+SELECT region_name,
+       customer_name,
+       total_sales
+FROM   ranked_sales
+WHERE  sales_rank = 1
+ORDER BY region_name;"
+"Which countries have the most failed orders ?","SELECT n.n_name as country_name,
+       count(o.o_orderkey) as failed_orders
+FROM   snowflake_sample_data.tpch_sf1.nation n join snowflake_sample_data.tpch_sf1.customer c
+        ON n.n_nationkey = c.c_nationkey join snowflake_sample_data.tpch_sf1.orders o
+        ON c.c_custkey = o.o_custkey
+WHERE  o.o_orderstatus = 'F'
+GROUP BY country_name
+ORDER BY failed_orders desc;"
+"How many customers have a given number of orders, excluding those orders with special requests? I want the results sorted by the number of customers in descending order and, for equal counts of customers, by the number of orders in descending order.","SELECT num_orders, COUNT(*) AS num_customers
+FROM (
+    SELECT o.o_custkey, COUNT(DISTINCT o.o_orderkey) AS num_orders
+    FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o
+    LEFT JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l ON o.o_orderkey = l.l_orderkey
+    WHERE l.l_commitdate = l.l_receiptdate
+    GROUP BY o.o_custkey
+)
+GROUP BY num_orders
+ORDER BY num_customers DESC, num_orders DESC"
+"what are the 10 biggest suppliers, along with the orders.","SELECT s.s_name as supplier_name,
+       count(distinct l.l_orderkey) as order_count
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.supplier s
+        ON l.l_suppkey = s.s_suppkey
+GROUP BY supplier_name
+ORDER BY order_count desc limit 10"
+"What is the top 3 customers in China? What are their names?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey
+WHERE  n.n_name = 'CHINA'
+GROUP BY customer_name
+ORDER BY total_sales desc limit 3;"
+"which 10 customers have had the largest increase in total order value compared to last quarter","SELECT c.c_name as customer_name,
+       sum(case when o.o_orderdate >= dateadd(month, -3, date_trunc('quarter', current_date())) and
+                     o.o_orderdate < date_trunc('quarter',
+                                                current_date()) then l.l_extendedprice * (1 - l.l_discount)
+                else 0 end) as last_quarter_total,
+       sum(case when o.o_orderdate >= dateadd(month, -6, date_trunc('quarter', current_date())) and
+                     o.o_orderdate < dateadd(month,
+                                             -3,
+                                             date_trunc('quarter', current_date())) then l.l_extendedprice * (1 - l.l_discount)
+                else 0 end) as previous_quarter_total,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as current_quarter_total
+FROM   snowflake_sample_data.tpch_sf1.customer c join snowflake_sample_data.tpch_sf1.orders o
+        ON c.c_custkey = o.o_custkey join snowflake_sample_data.tpch_sf1.lineitem l
+        ON o.o_orderkey = l.l_orderkey
+GROUP BY customer_name having last_quarter_total > 0 and previous_quarter_total > 0
+ORDER BY (current_quarter_total - previous_quarter_total) desc limit 10;"
+"What are the top 6 customers by sales?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY total_sales desc limit 6"
+"What are the top 20 customers that have the highest gross value of returned parts?","SELECT 
+    c.c_name, 
+    SUM(l.l_extendedprice * l.l_discount) as returned_parts_gross_value
+FROM 
+    SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l 
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+WHERE 
+    l.l_returnflag = 'R'
+GROUP BY 
+    c.c_name
+ORDER BY 
+    returned_parts_gross_value DESC
+LIMIT 
+    20"
+"Can you provide the count of orders for each priority level that were placed in the third quarter of 1993 (from July 1, 1993, to September 30, 1993) and have at least one line item which was received later than its commit date?","select
+	o_orderpriority,
+	count(*) as order_count
+from
+	orders
+where
+	o_orderdate >= date '1993-07-01'
+	AND o_orderdate < DATEADD(month, 3, '1993-07-01')
+	and exists (
+		select
+			*
+		from
+			lineitem
+		where
+			l_orderkey = o_orderkey
+			and l_commitdate < l_receiptdate
+	)
+group by
+	o_orderpriority
+order by
+	o_orderpriority;
+"
+"What are the names of the top six customers with the highest total sales?","SELECT c.c_name AS customer_name, SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY total_sales DESC
+LIMIT 6"
+"Calculate the max  order amount for the top 10 nations?","SELECT n.n_name as country_name,
+       max(l.l_extendedprice * (1 - l.l_discount)) as max_order_amount
+FROM   snowflake_sample_data.tpch_sf1.nation n join snowflake_sample_data.tpch_sf1.customer c
+        ON n.n_nationkey = c.c_nationkey join snowflake_sample_data.tpch_sf1.orders o
+        ON c.c_custkey = o.o_custkey join snowflake_sample_data.tpch_sf1.lineitem l
+        ON o.o_orderkey = l.l_orderkey
+GROUP BY country_name
+ORDER BY max_order_amount desc limit 10;"
+"What's the top customer by sales in each region?","with ranked_sales as (SELECT r.r_name as region_name,
+                             c.c_name as customer_name,
+                             sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales,
+                             rank() OVER (PARTITION BY r.r_name
+                                          ORDER BY sum(l.l_extendedprice * (1 - l.l_discount)) desc) as sales_rank
+                      FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+                              ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+                              ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+                              ON c.c_nationkey = n.n_nationkey join snowflake_sample_data.tpch_sf1.region r
+                              ON n.n_regionkey = r.r_regionkey
+                      GROUP BY 1, 2)
+SELECT region_name,
+       customer_name,
+       total_sales
+FROM   ranked_sales
+WHERE  sales_rank = 1;"
+"what top 10 countries have the most customers? show the name of the country and number of customers","This question seems to be a duplicate. Here's the SQL code again:
+
+```
+SELECT n.n_name AS country_name, COUNT(c.c_custkey) AS number_of_customers
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON n.n_nationkey = c.c_nationkey
+GROUP BY country_name
+ORDER BY number_of_customers DESC
+LIMIT 10
+```"
+"Can you give me the names of the top 100 suppliers in Saudi Arabia, along with the count of their finalized orders, where the orders were received after their committed dates and none of the other suppliers for those orders were late?","SELECT
+  s.s_suppkey AS supplier_key,
+  s.s_name AS supplier_name,
+  COUNT(DISTINCT o.o_orderkey) AS order_count
+FROM
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.SUPPLIER s
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l ON s.s_suppkey = l.l_suppkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l2 ON o.o_orderkey = l2.l_orderkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.SUPPLIER s2 ON l2.l_suppkey = s2.s_suppkey
+WHERE
+  s.s_nationkey = (
+    SELECT n.n_nationkey
+    FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n
+    WHERE n.n_name = 'SAUDI ARABIA'
+  )
+  AND l.l_receiptdate > l.l_commitdate
+  AND NOT EXISTS (
+    SELECT *
+    FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l3
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o2 ON l3.l_orderkey = o2.o_orderkey
+    WHERE l3.l_receiptdate > l3.l_commitdate
+    AND o2.o_orderkey = o.o_orderkey
+    AND l3.l_suppkey <> s.s_suppkey
+  )
+GROUP BY supplier_key, supplier_name
+ORDER BY order_count DESC
+LIMIT 100;"
+"What is the total revenue generated from orders that meet any of the following three sets of conditions:  Orders of parts from 'Brand#12' that are packaged in 'SM CASE', 'SM BOX', 'SM PACK', or 'SM PKG', with a quantity between 1 and 11, a size between 1 and 5, and a shipping mode of 'AIR' or 'AIR REG', with instructions to 'DELIVER IN PERSON'.  Orders of parts from 'Brand#23' that are packaged in 'MED BAG', 'MED BOX', 'MED PKG', or 'MED PACK', with a quantity between 10 and 20, a size between 1 and 10, and a shipping mode of 'AIR' or 'AIR REG', with instructions to 'DELIVER IN PERSON'.  Orders of parts from 'Brand#34' that are packaged in 'LG CASE', 'LG BOX', 'LG PACK', or 'LG PKG', with a quantity between 20 and 30, a size between 1 and 15, and a shipping mode of 'AIR' or 'AIR REG', with instructions to 'DELIVER IN PERSON'.","select
+	sum(l_extendedprice* (1 - l_discount)) as revenue
+from
+	lineitem,
+	part
+where
+	(
+		p_partkey = l_partkey
+		and p_brand = 'Brand#12'
+		and p_container in ('SM CASE', 'SM BOX', 'SM PACK', 'SM PKG')
+		and l_quantity >= 1 and l_quantity <= 1 + 10
+		and p_size between 1 and 5
+		and l_shipmode in ('AIR', 'AIR REG')
+		and l_shipinstruct = 'DELIVER IN PERSON'
+	)
+	or
+	(
+		p_partkey = l_partkey
+		and p_brand = 'Brand#23'
+		and p_container in ('MED BAG', 'MED BOX', 'MED PKG', 'MED PACK')
+		and l_quantity >= 10 and l_quantity <= 10 + 10
+		and p_size between 1 and 10
+		and l_shipmode in ('AIR', 'AIR REG')
+		and l_shipinstruct = 'DELIVER IN PERSON'
+	)
+	or
+	(
+		p_partkey = l_partkey
+		and p_brand = 'Brand#34'
+		and p_container in ('LG CASE', 'LG BOX', 'LG PACK', 'LG PKG')
+		and l_quantity >= 20 and l_quantity <= 20 + 10
+		and p_size between 1 and 15
+		and l_shipmode in ('AIR', 'AIR REG')
+		and l_shipinstruct = 'DELIVER IN PERSON'
+	);
+
+"
+"Who are the top 5 customers by sales?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY total_sales desc limit 5;"
+"What are the top 10 customers in the United States by sales?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey
+WHERE  n.n_name = 'UNITED STATES'
+GROUP BY customer_name
+ORDER BY total_sales desc limit 10"
+"Can you provide a list of nations in the 'ASIA' region and the total revenue generated from their customers for orders placed in the year 1994? I need this data ordered by the revenue in descending order.","select
+	n_name,
+	sum(l_extendedprice * (1 - l_discount)) as revenue
+from
+	customer,
+	orders,
+	lineitem,
+	supplier,
+	nation,
+	region
+where
+	c_custkey = o_custkey
+	and l_orderkey = o_orderkey
+	and l_suppkey = s_suppkey
+	and c_nationkey = s_nationkey
+	and s_nationkey = n_nationkey
+	and n_regionkey = r_regionkey
+	and r_name = 'ASIA'
+	and o_orderdate >= date '1994-01-01'
+	AND o_orderdate < DATEADD(year, 1, '1994-01-01')
+group by
+	n_name
+order by
+	revenue desc;
+"
+"what's the top 5 regions by sales?","SELECT r.r_name as region_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey join snowflake_sample_data.tpch_sf1.region r
+        ON n.n_regionkey = r.r_regionkey
+GROUP BY region_name
+ORDER BY total_sales desc limit 5;"
+"Could you provide a summary of our shipped line items prior to September 3, 1998, grouped by return status and line status? I need to know the total quantity, base price, discounted price, price charged after tax, the average quantity, price, discount rate, and the number of orders for each group.","select
+	l_returnflag,
+	l_linestatus,
+	sum(l_quantity) as sum_qty,
+	sum(l_extendedprice) as sum_base_price,
+	sum(l_extendedprice * (1 - l_discount)) as sum_disc_price,
+	sum(l_extendedprice * (1 - l_discount) * (1 + l_tax)) as sum_charge,
+	avg(l_quantity) as avg_qty,
+	avg(l_extendedprice) as avg_price,
+	avg(l_discount) as avg_disc,
+	count(*) as count_order
+from
+	lineitem
+where
+	l_shipdate <= DATEADD(day, 90, '1998-12-01')
+group by
+	l_returnflag,
+	l_linestatus
+order by
+	l_returnflag,
+	l_linestatus;"
+"Revenue from top 10 customers","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as revenue
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY revenue desc limit 10"
+"which customers based in iran the most total revenue? show customer name and number of orders","SELECT 
+    c.c_name AS customer_name, 
+    COUNT(DISTINCT o.o_orderkey) AS number_of_orders, 
+    SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_revenue
+FROM 
+    SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c 
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON c.c_nationkey = n.n_nationkey 
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON c.c_custkey = o.o_custkey 
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l ON o.o_orderkey = l.l_orderkey 
+WHERE 
+    n.n_name = 'IRAN'
+GROUP BY 
+    customer_name 
+ORDER BY 
+    total_revenue DESC 
+LIMIT 10;"
+"美国前10大客户是谁?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey
+WHERE  n.n_name = 'UNITED STATES'
+GROUP BY customer_name
+ORDER BY total_sales desc limit 10"
+" for each region get me the top 5 most valued orders for each region's along with the customer's name","with ranked_sales as (SELECT r.r_name as region_name,
+                             c.c_name as customer_name,
+                             o.o_orderkey as order_key,
+                             sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales,
+                             rank() OVER (PARTITION BY r.r_name
+                                          ORDER BY sum(l.l_extendedprice * (1 - l.l_discount)) desc) as sales_rank
+                      FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+                              ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+                              ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+                              ON c.c_nationkey = n.n_nationkey join snowflake_sample_data.tpch_sf1.region r
+                              ON n.n_regionkey = r.r_regionkey
+                      GROUP BY region_name, customer_name, order_key)
+SELECT region_name,
+       customer_name,
+       order_key,
+       total_sales
+FROM   ranked_sales
+WHERE  sales_rank <= 5;"
+"what top 10 countries have the most customers? show the name of the country and number of customers.","SELECT n.n_name AS country_name, COUNT(c.c_custkey) AS number_of_customers
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON n.n_nationkey = c.c_nationkey
+GROUP BY country_name
+ORDER BY number_of_customers DESC
+LIMIT 10"
+"What is the count of customers and the total account balance from countries with specific country codes ('13', '31', '23', '29', '30', '18', '17'), where the customer's account balance is greater than the average account balance of customers from these specific countries, and the customers have not placed any orders?","SELECT
+  COUNT(DISTINCT c.c_custkey) AS customer_count,
+  SUM(c.c_acctbal) AS total_account_balance
+FROM
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON c.c_nationkey = n.n_nationkey
+WHERE
+  n.n_name IN ('ARGENTINA', 'CANADA', 'GERMANY', 'UNITED KINGDOM', 'FRANCE', 'CANADA', 'UNITED STATES')
+  AND c.c_acctbal > (SELECT AVG(c2.c_acctbal) FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c2 JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n2 ON c2.c_nationkey = n2.n_nationkey WHERE n2.n_name IN ('ARGENTINA', 'CANADA', 'GERMANY', 'UNITED KINGDOM', 'FRANCE', 'CANADA', 'UNITED STATES'))
+  AND c.c_custkey NOT IN (SELECT o.o_custkey FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o)"
+"what is the name of the 10 biggest suppliers, along with the orders.","SELECT s.s_name as supplier_name,
+       count(distinct l.l_orderkey) as order_count
+FROM   snowflake_sample_data.tpch_sf1.supplier s join snowflake_sample_data.tpch_sf1.lineitem l
+        ON s.s_suppkey = l.l_suppkey
+GROUP BY supplier_name
+ORDER BY order_count desc limit 10;"
+"Who is the largest customer by sales in each region?","The corrected SQL query is:
+```
+with ranked_sales as (SELECT r.r_name as region_name,
+                             c.c_name as customer_name,
+                             sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales,
+                             rank() OVER (PARTITION BY r.r_name
+                                          ORDER BY sum(l.l_extendedprice * (1 - l.l_discount)) desc) as sales_rank
+                      FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+                              ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+                              ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+                              ON c.c_nationkey = n.n_nationkey join snowflake_sample_data.tpch_sf1.region r
+                              ON n.n_regionkey = r.r_regionkey
+                      GROUP BY 1, 2)
+SELECT region_name,
+       customer_name,
+       total_sales
+FROM   ranked_sales
+WHERE  sales_rank = 1
+ORDER BY region_name asc;
+``` 
+
+I replaced the `r.r_regionkey` in the `PARTITION BY` clause with `r.r_name` because `r.r_regionkey` is not a valid group by expression. I also used the `GROUP BY 1, 2` syntax instead of explicitly specifying the column names in the `GROUP BY` clause."
+"What is the count of line items purchased with each discount rate in each region?","SELECT
+  r.r_name AS region_name,
+  l.l_discount AS discount,
+  COUNT(*) AS count
+FROM
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON c.c_nationkey = n.n_nationkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r ON n.n_regionkey = r.r_regionkey
+GROUP BY
+  region_name,
+  discount
+ORDER BY
+  region_name,
+  discount"
+"What are the top 11 customers by sales?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY total_sales desc limit 11"
+"Which supplier has the lowest average part cost in each region?","SELECT
+  r.r_name AS region_name,
+  s.s_name AS supplier_name,
+  MIN(ps.ps_supplycost) AS lowest_avg_cost
+FROM
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON r.r_regionkey = n.n_regionkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.SUPPLIER s ON n.n_nationkey = s.s_nationkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.PARTSUPP ps ON s.s_suppkey = ps.ps_suppkey
+  JOIN (
+    SELECT
+      n.n_regionkey,
+      MIN(ps.ps_supplycost) AS min_supplycost
+    FROM
+      SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n
+      JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.SUPPLIER s ON n.n_nationkey = s.s_nationkey
+      JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.PARTSUPP ps ON s.s_suppkey = ps.ps_suppkey
+    GROUP BY
+      n.n_regionkey
+  ) min_costs ON n.n_regionkey = min_costs.n_regionkey AND ps.ps_supplycost = min_costs.min_supplycost
+GROUP BY region_name, supplier_name;"
+"What are the top 8 customers by sales?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY total_sales desc limit 8"
+"What are the top 10 customers's phone in the US?","SELECT c.c_name as customer_name,
+       c.c_phone as customer_phone
+FROM   snowflake_sample_data.tpch_sf1.customer c join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey
+WHERE  n.n_name = 'UNITED STATES'
+ORDER BY c.c_acctbal desc limit 10;"
+"What product had the largest price range in the last 24 months?","SELECT p.p_name,
+       stddev(l.l_extendedprice * (1 - l.l_discount)) as price_std_dev
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.part p
+        ON l.l_partkey = p.p_partkey join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey
+WHERE  o.o_orderdate between dateadd(month, -24, current_date())
+   and current_date()
+GROUP BY p.p_name
+ORDER BY price_std_dev desc limit 1;"
+"Retrieve customer names with highest orders from Africa region","SELECT c.c_name as customer_name,
+       count(o.o_orderkey) as order_count
+FROM   snowflake_sample_data.tpch_sf1.customer c join snowflake_sample_data.tpch_sf1.orders o
+        ON c.c_custkey = o.o_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey join snowflake_sample_data.tpch_sf1.region r
+        ON n.n_regionkey = r.r_regionkey
+WHERE  r.r_name = 'AFRICA'
+GROUP BY customer_name
+ORDER BY order_count desc limit 10"
+"What are the top 10 customers in the US?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey
+WHERE  n.n_name = 'UNITED STATES'
+GROUP BY customer_name
+ORDER BY total_sales desc limit 10"
+"What is the total revenue for the year 1994 from line items with a quantity less than 24 and a discount within 0.01 of 0.06?","select
+	sum(l_extendedprice * l_discount) as revenue
+from
+	snowflake_sample_data.tpch_sf1.lineitem
+where
+	l_shipdate >= date '1994-01-01'
+	AND l_shipdate < DATEADD(year, 1, '1994-01-01')
+	and l_discount between .06 - 0.01 and .06 + 0.01
+	and l_quantity < 24;
+"
+"can you please show me limit of 5 customers","SELECT n.n_name as country_name,
+       count(c.c_custkey) as number_of_customers
+FROM   snowflake_sample_data.tpch_sf1.nation n join snowflake_sample_data.tpch_sf1.customer c
+        ON n.n_nationkey = c.c_nationkey
+GROUP BY country_name
+ORDER BY number_of_customers desc limit 5;"
+"What are the names of the top 5 customers in terms of total sales?","SELECT c.c_name AS customer_name, SUM(l.l_quantity * l.l_extendedprice) AS total_sales
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON c.c_custkey = o.o_custkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l ON o.o_orderkey = l.l_orderkey
+GROUP BY customer_name
+ORDER BY total_sales DESC
+LIMIT 5"
+"Calculate the highest total order amount for the top 10 nations?","SELECT n.n_name as country_name,
+       round(sum(l.l_extendedprice * (1 - l.l_discount)),2) as total_order_amount
+FROM   snowflake_sample_data.tpch_sf1.nation n join snowflake_sample_data.tpch_sf1.customer c
+        ON n.n_nationkey = c.c_nationkey join snowflake_sample_data.tpch_sf1.orders o
+        ON c.c_custkey = o.o_custkey join snowflake_sample_data.tpch_sf1.lineitem l
+        ON o.o_orderkey = l.l_orderkey
+GROUP BY country_name
+ORDER BY total_order_amount desc limit 10"
+"What is the total sales and number of customers for each region?","SELECT r.r_name AS region, COUNT(DISTINCT c.c_custkey) AS number_of_customers, SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON c.c_nationkey = n.n_nationkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r ON n.n_regionkey = r.r_regionkey
+GROUP BY region"
+"For the years 1995 and 1996, what is the annual revenue from shipping transactions between France and Germany, regardless of which nation is the supplier and which is the customer? I need this information grouped by supplier nation, customer nation, and year","select
+	supp_nation,
+	cust_nation,
+	l_year,
+	sum(volume) as revenue
+from
+	(
+		select
+			n1.n_name as supp_nation,
+			n2.n_name as cust_nation,
+			extract(year from l_shipdate) as l_year,
+			l_extendedprice * (1 - l_discount) as volume
+		from
+			supplier,
+			lineitem,
+			orders,
+			customer,
+			nation n1,
+			nation n2
+		where
+			s_suppkey = l_suppkey
+			and o_orderkey = l_orderkey
+			and c_custkey = o_custkey
+			and s_nationkey = n1.n_nationkey
+			and c_nationkey = n2.n_nationkey
+			and (
+				(n1.n_name = 'FRANCE' and n2.n_name = 'GERMANY')
+				or (n1.n_name = 'GERMANY' and n2.n_name = 'FRANCE')
+			)
+			and l_shipdate between date '1995-01-01' and date '1996-12-31'
+	) as shipping
+group by
+	supp_nation,
+	cust_nation,
+	l_year
+order by
+	supp_nation,
+	cust_nation,
+	l_year;
+
+"
+"how many customers are in each region","SELECT r.r_name as region_name,
+       count(distinct c.c_custkey) as customer_count
+FROM   snowflake_sample_data.tpch_sf1.region r join snowflake_sample_data.tpch_sf1.nation n
+        ON r.r_regionkey = n.n_regionkey join snowflake_sample_data.tpch_sf1.customer c
+        ON n.n_nationkey = c.c_nationkey
+GROUP BY region_name
+ORDER BY region_name asc;"
+"Calculate the total order amount for the top 10 nation?","SELECT n.n_name as nation_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_order_amount
+FROM   snowflake_sample_data.tpch_sf1.nation n join snowflake_sample_data.tpch_sf1.customer c
+        ON n.n_nationkey = c.c_nationkey join snowflake_sample_data.tpch_sf1.orders o
+        ON c.c_custkey = o.o_custkey join snowflake_sample_data.tpch_sf1.lineitem l
+        ON o.o_orderkey = l.l_orderkey
+GROUP BY nation_name
+ORDER BY total_order_amount desc limit 10;"
+"Which supplier has the lowest average part cost for brass parts in each region?","SELECT
+  r.r_name AS region_name,
+  s.s_name AS supplier_name,
+  MIN(ps.ps_supplycost) AS lowest_avg_cost
+FROM
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON r.r_regionkey = n.n_regionkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.SUPPLIER s ON n.n_nationkey = s.s_nationkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.PARTSUPP ps ON s.s_suppkey = ps.ps_suppkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.PART p ON ps.ps_partkey = p.p_partkey
+WHERE p.p_type like '%BRASS'
+GROUP BY region_name, supplier_name;"
+"show me the pie chart of the market share by market segment in customer table","SELECT c.c_mktsegment as market_segment,
+       count(*) as market_segment_count
+FROM   snowflake_sample_data.tpch_sf1.customer c
+GROUP BY market_segment;"
+"Can you provide a list of the top 10 orders, based on revenue, for customers in the 'BUILDING' market segment that were placed before March 15, 1995, but shipped after this date? I need the order key, total revenue, order date, and shipping priority for each.","select
+	l_orderkey,
+	sum(l_extendedprice * (1 - l_discount)) as revenue,
+	o_orderdate,
+	o_shippriority
+from
+	customer,
+	orders,
+	lineitem
+where
+	c_mktsegment = 'BUILDING'
+	and c_custkey = o_custkey
+	and l_orderkey = o_orderkey
+	and o_orderdate < date '1995-03-15'
+	and l_shipdate > date '1995-03-15'
+group by
+	l_orderkey,
+	o_orderdate,
+	o_shippriority
+order by
+	revenue desc,
+	o_orderdate limit 10;"
+"What are the top 7 customers by sales?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY total_sales desc limit 7;"
+"Could you provide a list of the top 100 suppliers in Europe based on their account balance, who supply brass parts of size 15 at the lowest cost? I need to know the supplier's name, their address, phone number, and any additional comments, the name of their nation, as well as the part key and manufacturer.","select
+	s_acctbal,
+	s_name,
+	n_name,
+	p_partkey,
+	p_mfgr,
+	s_address,
+	s_phone,
+	s_comment
+from
+	part,
+	supplier,
+	partsupp,
+	nation,
+	region
+where
+	p_partkey = ps_partkey
+	and s_suppkey = ps_suppkey
+	and p_size = 15
+	and p_type like '%BRASS'
+	and s_nationkey = n_nationkey
+	and n_regionkey = r_regionkey
+	and r_name = 'EUROPE'
+	and ps_supplycost = (
+		select
+			min(ps_supplycost)
+		from
+			partsupp,
+			supplier,
+			nation,
+			region
+		where
+			p_partkey = ps_partkey
+			and s_suppkey = ps_suppkey
+			and s_nationkey = n_nationkey
+			and n_regionkey = r_regionkey
+			and r_name = 'EUROPE'
+	)
+order by
+	s_acctbal desc,
+	n_name,
+	s_name,
+	p_partkey LIMIT 100;"
+"What is the percentage of revenue that came from promotional parts (those having type starting with 'PROMO') shipped in September 1995?","SELECT 
+  (SUM(l.l_extendedprice * (1 - l.l_discount)) / 
+  (SELECT 
+    SUM(l.l_extendedprice * (1 - l.l_discount)) 
+  FROM 
+    SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l 
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.PART p ON l.l_partkey = p.p_partkey 
+  WHERE 
+    p.p_type LIKE 'PROMO%') * 100) AS promo_sales_pct
+FROM 
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l 
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.PART p ON l.l_partkey = p.p_partkey 
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey 
+WHERE 
+  p.p_type LIKE 'PROMO%'
+  AND o.o_orderdate >= DATEADD(month, -2, '1995-10-01')
+  AND o.o_orderdate < DATEADD(month, 1, '1995-10-01');"
+"Who are the top 5 customers in the United States?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey
+WHERE  n.n_name = 'UNITED STATES'
+GROUP BY customer_name
+ORDER BY total_sales desc limit 5;"
+"What are the number of countries in each region, in descending order?","SELECT r.r_name AS region_name, COUNT(DISTINCT n.n_name) AS num_countries
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r 
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON r.r_regionkey = n.n_regionkey
+GROUP BY region_name
+ORDER BY num_countries DESC"
+"What are the top 3 customers by sales ranking for each of the top 2 regions by total sales?","WITH
+  sales_by_region AS (
+    SELECT
+      r.r_name AS region_name,
+      c.c_name AS customer_name,
+      SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+    FROM
+      SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+      JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+      JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+      JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON c.c_nationkey = n.n_nationkey
+      JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r ON n.n_regionkey = r.r_regionkey
+    GROUP BY
+      region_name,
+      customer_name
+  ),
+  ranked_sales AS (
+    SELECT
+      region_name,
+      customer_name,
+      total_sales,
+      RANK() OVER (
+        PARTITION BY region_name
+        ORDER BY total_sales DESC
+      ) AS sales_rank
+    FROM
+      sales_by_region
+  )
+SELECT *
+FROM ranked_sales
+WHERE region_name IN (
+  SELECT
+    r.r_name
+  FROM
+    SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON c.c_nationkey = n.n_nationkey
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r ON n.n_regionkey = r.r_regionkey
+  GROUP BY
+    r.r_name
+  ORDER BY
+    SUM(l.l_extendedprice * (1 - l.l_discount)) DESC
+  LIMIT 2
+)
+AND sales_rank <= 3;"
+"What are the names of the top three customers in terms of total sales?","SELECT c.c_name AS customer_name, SUM(l.l_quantity * l.l_extendedprice) AS total_sales
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON c.c_custkey = o.o_custkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l ON o.o_orderkey = l.l_orderkey
+GROUP BY customer_name
+ORDER BY total_sales DESC
+LIMIT 3"
+"What is the most common shipment modes for failed orders ?","SELECT l_shipmode,
+                   count(DISTINCT o.o_orderkey) as failed_orders
+FROM   snowflake_sample_data.tpch_sf1.orders o
+join   snowflake_sample_data.tpch_sf1.lineitem l 
+       ON l.l_orderkey = o.o_orderkey
+WHERE  o.o_orderstatus = 'F'
+GROUP BY l_shipmode
+ORDER BY failed_orders desc
+"
+"What are the top 10 customers that have the highest value of returned brass parts in Europe?","SELECT c.c_name AS customer_name, SUM(l.l_extendedprice * l.l_discount) AS returned_parts_gross_value
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.SUPPLIER s ON l.l_suppkey = s.s_suppkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON s.s_nationkey = n.n_nationkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r ON n.n_regionkey = r.r_regionkey
+WHERE l.l_returnflag = 'R' AND r.r_name = 'EUROPE' AND l.l_partkey IN (
+	SELECT p.p_partkey FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.PART p
+	WHERE p.p_type LIKE '%BRASS%'
+) 
+GROUP BY customer_name
+ORDER BY returned_parts_gross_value DESC
+LIMIT 10"
+"how many orders were placed per week, how many orders were placed 12 weeks ago?","SELECT date_trunc('week', o_orderdate) as week_start,
+       count(*) as number_of_orders,
+       count(case when o_orderdate >= dateadd('week', -12, date_trunc('week', current_date())) and
+                       o_orderdate < dateadd('week',
+                                             -11,
+                                             date_trunc('week', current_date())) then o_orderkey
+                  else null end) as number_of_orders_12_weeks_ago
+FROM   snowflake_sample_data.tpch_sf1.orders
+GROUP BY week_start
+ORDER BY week_start asc"
+"What are the total sales for each year for the most popular part?","SELECT 
+  TO_CHAR(o.o_orderdate, 'YYYY') AS order_year, 
+  SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM 
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.PART p ON l.l_partkey = p.p_partkey
+WHERE 
+  p.p_name = (
+    SELECT 
+      p_name 
+    FROM 
+      SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.PART 
+    JOIN 
+      SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM ON p_partkey = l_partkey 
+    GROUP BY 
+      p_name 
+    ORDER BY 
+      SUM(l_quantity) DESC 
+    LIMIT 1
+  )
+GROUP BY 
+  order_year
+ORDER BY 
+  order_year;"
+"What's the most recent date in the dataset?","SELECT max(o_orderdate) as latest_date
+FROM   snowflake_sample_data.tpch_sf1.orders;"
+"What are the top ten users?","SELECT user_name
+FROM   users
+ORDER BY user_id limit 10;"
+"Which 5 customers are getting the biggest discounts?","SELECT c.c_name AS customer_name, AVG(l.l_discount) AS avg_discount
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY avg_discount DESC
+LIMIT 5"
+"Calculate the total sales amount and the average sales amount for each nation?","SELECT n.n_name as nation_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales,
+       avg(l.l_extendedprice * (1 - l.l_discount)) as avg_sales
+FROM   snowflake_sample_data.tpch_sf1.nation n join snowflake_sample_data.tpch_sf1.customer c
+        ON n.n_nationkey = c.c_nationkey join snowflake_sample_data.tpch_sf1.orders o
+        ON c.c_custkey = o.o_custkey join snowflake_sample_data.tpch_sf1.lineitem l
+        ON o.o_orderkey = l.l_orderkey
+GROUP BY nation_name
+ORDER BY 2 asc
+limit 10;"
+"What are the top 5 customers by sales?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY total_sales desc limit 5"
+"how many customers in each region?","SELECT r.r_name as region_name,
+       count(distinct c.c_custkey) as customer_count
+FROM   snowflake_sample_data.tpch_sf1.region r join snowflake_sample_data.tpch_sf1.nation n
+        ON r.r_regionkey = n.n_regionkey join snowflake_sample_data.tpch_sf1.customer c
+        ON n.n_nationkey = c.c_nationkey
+GROUP BY region_name;"
+"Who are the top 10 customers by sales?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY total_sales desc limit 10"
+"For each shipping mode ('MAIL' or 'SHIP'), how many orders have a high priority ('1-URGENT' or '2-HIGH') and how many have a low priority (anything other than '1-URGENT' or '2-HIGH')? Consider only orders shipped within 1994 and where the commit date is before the receipt date and the ship date is before the commit date.","select
+	l_shipmode,
+	sum(case
+		when o_orderpriority = '1-URGENT'
+			or o_orderpriority = '2-HIGH'
+			then 1
+		else 0
+	end) as high_line_count,
+	sum(case
+		when o_orderpriority <> '1-URGENT'
+			and o_orderpriority <> '2-HIGH'
+			then 1
+		else 0
+	end) as low_line_count
+from
+	orders,
+	lineitem
+where
+	o_orderkey = l_orderkey
+	and l_shipmode in ('MAIL', 'SHIP')
+	and l_commitdate < l_receiptdate
+	and l_shipdate < l_commitdate
+	and l_receiptdate >= date '1994-01-01'
+	AND o_orderdate < DATEADD(year, 1, '1994-01-01')
+group by
+	l_shipmode
+order by
+	l_shipmode;
+"
+"What are the top 10 customers that have the highest value of returned brass parts in Germany? Use the abbreviation ""DE"" in the chart title instead of Germany","This question has already been asked and answered here: https://github.com/AskdataHQ/snowflake-samples/issues/29#issuecomment-891313460
+
+Here's the solution:
+
+```
+SELECT c.c_name AS customer_name, SUM(l.l_extendedprice * l.l_discount) AS returned_parts_gross_value
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.SUPPLIER s ON l.l_suppkey = s.s_suppkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON s.s_nationkey = n.n_nationkey
+WHERE l.l_returnflag = 'R' AND n.n_name = 'GERMANY' AND l.l_partkey IN (
+	SELECT p.p_partkey FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.PART p
+	WHERE p.p_type LIKE '%BRASS%'
+) 
+GROUP BY customer_name
+ORDER BY returned_parts_gross_value DESC
+LIMIT 10
+```
+
+"
+"Which country has the most failed orders ?","SELECT n.n_name as country_name,
+       count(o.o_orderkey) as failed_orders
+FROM   snowflake_sample_data.tpch_sf1.nation n join snowflake_sample_data.tpch_sf1.customer c
+        ON n.n_nationkey = c.c_nationkey join snowflake_sample_data.tpch_sf1.orders o
+        ON c.c_custkey = o.o_custkey
+WHERE  o.o_orderstatus = 'F'
+GROUP BY country_name
+ORDER BY failed_orders desc limit 1;"
+"Retrieve customer names with highest orders","SELECT c.c_name as customer_name,
+       count(o.o_orderkey) as order_count
+FROM   snowflake_sample_data.tpch_sf1.customer c join snowflake_sample_data.tpch_sf1.orders o
+        ON c.c_custkey = o.o_custkey
+GROUP BY customer_name
+ORDER BY order_count desc"
+"How many customers are in each region?","SELECT r.r_name as region_name,
+       count(distinct c.c_custkey) as customer_count
+FROM   snowflake_sample_data.tpch_sf1.region r join snowflake_sample_data.tpch_sf1.nation n
+        ON r.r_regionkey = n.n_regionkey join snowflake_sample_data.tpch_sf1.customer c
+        ON n.n_nationkey = c.c_nationkey
+GROUP BY region_name
+ORDER BY region_name asc;"
+"Which part keys in Germany have a total value of supply cost times available quantity greater than 0.0001% of the total value for all part keys in Germany? I want the results sorted by value in descending order.","select
+	ps_partkey,
+	sum(ps_supplycost * ps_availqty) as value
+from
+	partsupp,
+	supplier,
+	nation
+where
+	ps_suppkey = s_suppkey
+	and s_nationkey = n_nationkey
+	and n_name = 'GERMANY'
+group by
+	ps_partkey having
+		sum(ps_supplycost * ps_availqty) > (
+			select
+				sum(ps_supplycost * ps_availqty) * 0.0001000000
+			from
+				partsupp,
+				supplier,
+				nation
+			where
+				ps_suppkey = s_suppkey
+				and s_nationkey = n_nationkey
+				and n_name = 'GERMANY'
+		)
+order by
+	value desc;
+"
+"What are the top 7 customers ranked by total sales?","SELECT c.c_name AS customer_name, SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY total_sales DESC
+LIMIT 7"
+"which customers have the most total revenue? show customer name, country and number of orders","SELECT
+  c.c_name AS customer_name,
+  n.n_name AS country_name,
+  COUNT(DISTINCT o.o_orderkey) AS number_of_orders,
+  SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_revenue
+FROM
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON c.c_nationkey = n.n_nationkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON c.c_custkey = o.o_custkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l ON o.o_orderkey = l.l_orderkey
+GROUP BY
+  customer_name,
+  country_name
+ORDER BY
+  total_revenue DESC
+LIMIT
+  10;"
+"近一周大盘用户活跃度","Based on the error message, it seems that the table `user_activity` does not exist or the user does not have the necessary permissions to access it. Please ensure that the table exists in the correct database and that the user has the necessary permissions to access it."
+"how many orders were placed per week?","SELECT date_trunc('week', o_orderdate) as week_start,
+       count(*) as number_of_orders
+FROM   snowflake_sample_data.tpch_sf1.orders
+GROUP BY week_start
+ORDER BY week_start desc"
+"What product has the most variability in price in the last 24 months?","SELECT p.p_brand,
+       p.p_type,
+       stddev(l.l_extendedprice * (1 - l.l_discount)) as price_std_dev
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.part p
+        ON l.l_partkey = p.p_partkey join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey
+WHERE  o.o_orderdate between dateadd(month, -24, current_date())
+   and current_date()
+GROUP BY p.p_brand, p.p_type
+ORDER BY price_std_dev desc limit 10"
+"Calculate the total order amount for the top 10 nations?","SELECT n.n_name as nation_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_order_amount
+FROM   snowflake_sample_data.tpch_sf1.nation n join snowflake_sample_data.tpch_sf1.customer c
+        ON n.n_nationkey = c.c_nationkey join snowflake_sample_data.tpch_sf1.orders o
+        ON c.c_custkey = o.o_custkey join snowflake_sample_data.tpch_sf1.lineitem l
+        ON o.o_orderkey = l.l_orderkey
+GROUP BY nation_name
+ORDER BY total_order_amount desc limit 10;"
+"Who are the top 20 customers by revenue, who have returned items in the last quarter of 1993 (October - December), and what are their details?","select
+	c_custkey,
+	c_name,
+	sum(l_extendedprice * (1 - l_discount)) as revenue,
+	c_acctbal,
+	n_name,
+	c_address,
+	c_phone,
+	c_comment
+from
+	customer,
+	orders,
+	lineitem,
+	nation
+where
+	c_custkey = o_custkey
+	and l_orderkey = o_orderkey
+	and o_orderdate >= date '1993-10-01'
+	AND o_orderdate < DATEADD(month, 3, '1993-10-01')
+	and l_returnflag = 'R'
+	and c_nationkey = n_nationkey
+group by
+	c_custkey,
+	c_name,
+	c_acctbal,
+	c_phone,
+	n_name,
+	c_address,
+	c_comment
+order by
+	revenue desc limit 20;"
+"what are the 5 top customers by sales in europe. show the total sales, total number of orders, country, and date of last order.","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales,
+       count(distinct o.o_orderkey) as total_orders,
+       n.n_name as country,
+       max(o.o_orderdate) as last_order_date
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey join snowflake_sample_data.tpch_sf1.region r
+        ON n.n_regionkey = r.r_regionkey
+WHERE  r.r_name = 'EUROPE'
+GROUP BY customer_name, country
+ORDER BY total_sales desc limit 5;"
+"What are the top 10 customers that have the highest value of returned brass parts where each part is more than $10 in Germany? Use the abbreviation ""DE"" in the chart title instead of Germany","SELECT 
+    c.c_name AS customer_name, 
+    SUM(l.l_extendedprice * l.l_discount) AS returned_parts_gross_value
+FROM 
+    SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l 
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o 
+        ON l.l_orderkey = o.o_orderkey
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c 
+        ON o.o_custkey = c.c_custkey
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.SUPPLIER s 
+        ON l.l_suppkey = s.s_suppkey
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n 
+        ON s.s_nationkey = n.n_nationkey
+    WHERE 
+        l.l_returnflag = 'R' 
+        AND n.n_name = 'GERMANY'
+        AND l.l_extendedprice * (1 - l.l_discount) > 10 
+        AND l.l_partkey IN (
+            SELECT 
+                p.p_partkey 
+            FROM 
+                SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.PART p 
+            WHERE 
+                p.p_type LIKE '%BRASS%'
+        )
+GROUP BY 
+    customer_name
+ORDER BY 
+    returned_parts_gross_value DESC
+LIMIT 
+    10"
+"What is the market share of Brazil, by year, for 'ECONOMY ANODIZED STEEL' type parts sold in the 'AMERICA' region for the years 1995 and 1996?","select
+	o_year,
+	sum(case
+		when nation = 'BRAZIL' then volume
+		else 0
+	end) / sum(volume) as mkt_share
+from
+	(
+		select
+			extract(year from o_orderdate) as o_year,
+			l_extendedprice * (1 - l_discount) as volume,
+			n2.n_name as nation
+		from
+			part,
+			supplier,
+			lineitem,
+			orders,
+			customer,
+			nation n1,
+			nation n2,
+			region
+		where
+			p_partkey = l_partkey
+			and s_suppkey = l_suppkey
+			and l_orderkey = o_orderkey
+			and o_custkey = c_custkey
+			and c_nationkey = n1.n_nationkey
+			and n1.n_regionkey = r_regionkey
+			and r_name = 'AMERICA'
+			and s_nationkey = n2.n_nationkey
+			and o_orderdate between date '1995-01-01' and date '1996-12-31'
+			and p_type = 'ECONOMY ANODIZED STEEL'
+	) as all_nations
+group by
+	o_year
+order by
+	o_year;
+
+"
+"What are the top 10 countries ranked by total sales, based on customer and order data?","SELECT
+  n.n_name AS country_name,
+  SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON n.n_nationkey = c.c_nationkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON c.c_custkey = o.o_custkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l ON o.o_orderkey = l.l_orderkey
+GROUP BY country_name
+ORDER BY total_sales DESC
+LIMIT 10;"
+"What are the top 11 customers by sales in the United States?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey
+WHERE  n.n_name = 'UNITED STATES'
+GROUP BY customer_name
+ORDER BY total_sales desc limit 11"
+"For each year, what is the total profit generated by parts with a name containing 'green' for each nation? I want this information sorted by nation and year in descending order.","select
+	nation,
+	o_year,
+	sum(amount) as sum_profit
+from
+	(
+		select
+			n_name as nation,
+			extract(year from o_orderdate) as o_year,
+			l_extendedprice * (1 - l_discount) - ps_supplycost * l_quantity as amount
+		from
+			part,
+			supplier,
+			lineitem,
+			partsupp,
+			orders,
+			nation
+		where
+			s_suppkey = l_suppkey
+			and ps_suppkey = l_suppkey
+			and ps_partkey = l_partkey
+			and p_partkey = l_partkey
+			and o_orderkey = l_orderkey
+			and s_nationkey = n_nationkey
+			and p_name like '%green%'
+	) as profit
+group by
+	nation,
+	o_year
+order by
+	nation,
+	o_year desc;
+"
+"which customer ordered for the biggest order value, along with the name of the customer and the order value ? ","SELECT c.c_name as customer_name,
+       o.o_orderkey as order_key,
+       o.o_totalprice as order_value
+FROM   snowflake_sample_data.tpch_sf1.customer c join snowflake_sample_data.tpch_sf1.orders o
+        ON c.c_custkey = o.o_custkey
+ORDER BY o.o_totalprice desc limit 1"
+"How many customers do we have in the United States?","SELECT count(c.c_custkey) as number_of_customers
+FROM   snowflake_sample_data.tpch_sf1.nation n join snowflake_sample_data.tpch_sf1.customer c
+        ON n.n_nationkey = c.c_nationkey
+WHERE  n.n_name = 'UNITED STATES'"
+"Retrieve all sales  for the American region","SELECT sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey join snowflake_sample_data.tpch_sf1.region r
+        ON n.n_regionkey = r.r_regionkey
+WHERE  r.r_name = 'AMERICA'
+GROUP BY r.r_name;"
+"how many orders were placed per day?","SELECT date_trunc('day', o_orderdate) as order_date,
+       count(*) as number_of_orders
+FROM   snowflake_sample_data.tpch_sf1.orders
+GROUP BY 1
+ORDER BY 1"
+"what is the name of the 10 biggest suppliers","SELECT s_name as supplier_name
+FROM   snowflake_sample_data.tpch_sf1.supplier
+ORDER BY s_acctbal desc limit 10;"
+"What is the average number of items per order?","SELECT AVG(total_items) AS avg_order_size
+FROM (
+  SELECT o.o_orderkey AS order_id, SUM(l.l_quantity) AS total_items
+  FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l ON o.o_orderkey = l.l_orderkey
+  GROUP BY o.o_orderkey
+)"
+"What are the top two regions by total sales of all orders?","SELECT
+  r.r_name AS region_name,
+  SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON r.r_regionkey = n.n_regionkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON n.n_nationkey = c.c_nationkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON c.c_custkey = o.o_custkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l ON o.o_orderkey = l.l_orderkey
+GROUP BY region_name
+ORDER BY total_sales DESC
+LIMIT 2;"
+"list top 10 customer order by amount of orders","SELECT c.c_name as customer_name,
+       count(o.o_orderkey) as number_of_orders
+FROM   snowflake_sample_data.tpch_sf1.customer c join snowflake_sample_data.tpch_sf1.orders o
+        ON c.c_custkey = o.o_custkey
+GROUP BY customer_name
+ORDER BY number_of_orders desc limit 10"
+"What are the top 10 customers by sales?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY total_sales desc limit 10;"
+"What are the top 3 customers in China?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey
+WHERE  n.n_name = 'CHINA'
+GROUP BY customer_name
+ORDER BY total_sales desc limit 3;"
+"What are the top 10 customers in the US by sales?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey
+WHERE  n.n_name = 'UNITED STATES'
+GROUP BY customer_name
+ORDER BY total_sales desc limit 10;"
+"What are the total sales for each region?","SELECT r.r_name as region,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey join snowflake_sample_data.tpch_sf1.region r
+        ON n.n_regionkey = r.r_regionkey
+GROUP BY region
+ORDER BY total_sales desc;"
+"What are the total sales by region?","```
+SELECT 
+  r.r_name AS region, 
+  SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM 
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON c.c_nationkey = n.n_nationkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r ON n.n_regionkey = r.r_regionkey
+GROUP BY 
+  region
+ORDER BY 
+  total_sales DESC;
+```"
+"What are the top 10 customers by sales in the United States?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey
+WHERE  n.n_name = 'UNITED STATES'
+GROUP BY customer_name
+ORDER BY total_sales desc limit 10"
+"how many orders were placed per week, and how does that compare to 12 weeks prior?","SELECT trunc(o_orderdate, 'week') as week_start,
+       count(distinct o_orderkey) as num_orders,
+       count(distinct case when o_orderdate >= dateadd(week, -12, trunc(current_date, 'week')) and
+                                o_orderdate < dateadd(week, -11, trunc(current_date, 'week')) then o_orderkey
+                           else null end) as num_orders_12_weeks_prior,
+       case when count(distinct o_orderkey) > count(distinct case when o_orderdate >= dateadd(week, -12, trunc(current_date, 'week')) and
+                 o_orderdate < dateadd(week, -11, trunc(current_date, 'week')) then o_orderkey
+            else null end) then 'Higher'
+            when count(distinct o_orderkey) < count(distinct case when o_orderdate >= dateadd(week, -12, trunc(current_date, 'week')) and
+                 o_orderdate < dateadd(week, -11, trunc(current_date, 'week')) then o_orderkey
+            else null end) then 'Lower'
+            else 'Same' end as order_diff
+FROM   snowflake_sample_data.tpch_sf1.orders
+GROUP BY week_start having week_start >= dateadd(week, -12, trunc(current_date, 'week'))
+ORDER BY week_start desc;"
+"Can you show me a list of different parts (defined by brand, type, and size), excluding certain types and brands, and those supplied by suppliers with customer complaints? And can you order this list by the number of distinct suppliers for each part, and then by brand, type, and size?","select
+	p_brand,
+	p_type,
+	p_size,
+	count(distinct ps_suppkey) as supplier_cnt
+from
+	snowflake_sample_data.tpch_sf1.partsupp,
+	snowflake_sample_data.tpch_sf1.part
+where
+	p_partkey = ps_partkey
+	and p_brand <> 'Brand#45'
+	and p_type not like 'MEDIUM POLISHED%'
+	and p_size in (49, 14, 23, 45, 19, 3, 36, 9)
+	and ps_suppkey not in (
+		select
+			s_suppkey
+		from
+			snowflake_sample_data.tpch_sf1.supplier
+		where
+			s_comment like '%Customer%Complaints%'
+	)
+group by
+	p_brand,
+	p_type,
+	p_size
+order by
+	supplier_cnt desc,
+	p_brand,
+	p_type,
+	p_size;"
+"What are the total sales by region and what are  the region names?","```
+SELECT 
+  r.r_name AS region_name, 
+  SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM 
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON c.c_nationkey = n.n_nationkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r ON n.n_regionkey = r.r_regionkey
+GROUP BY 
+  region_name
+ORDER BY 
+  total_sales DESC;
+```"
+"What are the top 5 customers in terms of total sales?","SELECT c.c_name AS customer_name, SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY total_sales DESC
+LIMIT 5"
+"What are the top 3 customers by sales in the United States?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.customer c join snowflake_sample_data.tpch_sf1.orders o
+        ON c.c_custkey = o.o_custkey join snowflake_sample_data.tpch_sf1.lineitem l
+        ON o.o_orderkey = l.l_orderkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey
+WHERE  n.n_name = 'UNITED STATES'
+GROUP BY customer_name
+ORDER BY total_sales desc limit 3;"
+"What are the top 7 customers in the United States?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey
+WHERE  n.n_name = 'UNITED STATES'
+GROUP BY customer_name
+ORDER BY total_sales desc limit 7"
+"which country has most customers ? ","SELECT n.n_name as country_name,
+       o_orderstatus,
+       count(c.c_custkey) as customer_count
+FROM   snowflake_sample_data.tpch_sf1.nation n
+join snowflake_sample_data.tpch_sf1.customer c
+        ON n.n_nationkey = c.c_nationkey
+JOIN snowflake_sample_data.tpch_sf1.orders o 
+        on o.o_custkey = c.c_custkey 
+GROUP BY country_name, o_orderstatus 
+"
+"how many customers are in the united states?","SELECT count(c.c_custkey) as number_of_customers
+FROM   snowflake_sample_data.tpch_sf1.nation n join snowflake_sample_data.tpch_sf1.customer c
+        ON n.n_nationkey = c.c_nationkey
+WHERE  n.n_name = 'UNITED STATES'"
+"What products have the most variability in price in the last 24 months?","SELECT p.p_brand,
+       p.p_type,
+       stddev(l.l_extendedprice * (1 - l.l_discount)) as price_std_dev
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.part p
+        ON l.l_partkey = p.p_partkey join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey
+WHERE  o.o_orderdate between dateadd(month, -24, current_date())
+   and current_date()
+GROUP BY p.p_brand, p.p_type
+ORDER BY price_std_dev desc limit 10"
+"Calculate the total order amount for each nation?","SELECT n.n_name as country_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_order_amount
+FROM   snowflake_sample_data.tpch_sf1.nation n join snowflake_sample_data.tpch_sf1.customer c
+        ON n.n_nationkey = c.c_nationkey join snowflake_sample_data.tpch_sf1.orders o
+        ON c.c_custkey = o.o_custkey join snowflake_sample_data.tpch_sf1.lineitem l
+        ON o.o_orderkey = l.l_orderkey
+GROUP BY country_name;"
+"Which countries had the highest discounts over the last 12 months?","SELECT
+  n.n_name AS country_name,
+  AVG(l.l_discount) AS avg_discount
+FROM
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON n.n_nationkey = c.c_nationkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON c.c_custkey = o.o_custkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l ON o.o_orderkey = l.l_orderkey
+WHERE 
+  o.o_orderdate BETWEEN DATEADD(month, -12, CURRENT_DATE()) AND CURRENT_DATE()
+GROUP BY
+  country_name
+ORDER BY
+  avg_discount DESC;"
+"What are the top 10 customers that have the highest value of returned brass parts in Africa?","SELECT c.c_name AS customer_name, SUM(l.l_extendedprice * l.l_discount) AS returned_parts_gross_value
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.SUPPLIER s ON l.l_suppkey = s.s_suppkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON s.s_nationkey = n.n_nationkey
+WHERE l.l_returnflag = 'R' AND n.n_name = 'AFRICA' AND l.l_partkey IN (
+	SELECT p.p_partkey FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.PART p
+	WHERE p.p_type LIKE '%BRASS%'
+) 
+GROUP BY customer_name
+ORDER BY returned_parts_gross_value DESC
+LIMIT 10"
+"What are the top 10 customers in terms of total sales?","SELECT c.c_name AS customer_name, SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY total_sales DESC
+LIMIT 10"
+"top 5 customers by sales in the united states","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey
+WHERE  n.n_name = 'UNITED STATES'
+GROUP BY customer_name
+ORDER BY total_sales desc limit 5;"
+"Who are the top 10 customers in the United States?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey
+WHERE  n.n_name = 'UNITED STATES'
+GROUP BY customer_name
+ORDER BY total_sales desc limit 10;"
+"What are the top 20 customers that have the highest value of returned parts?","SELECT 
+    c.c_name, 
+    SUM(l.l_extendedprice * l.l_discount) as returned_parts_gross_value
+FROM 
+    SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l 
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+    JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+WHERE 
+    l.l_returnflag = 'R'
+GROUP BY 
+    c.c_name
+ORDER BY 
+    returned_parts_gross_value DESC
+LIMIT 
+    20"
+"I have a large table consisting of two keys (id,date) I want to change the id so that every day an account starts from one","SELECT dense_rank() OVER (PARTITION BY date
+                          ORDER BY id) as new_id,
+       date
+FROM   your_table;"
+"What are the top 10 customers?","SELECT c.c_name as customer_name
+FROM   snowflake_sample_data.tpch_sf1.customer c
+ORDER BY c.c_custkey limit 10;"
+"What are the top 5 customers in the United States?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey
+WHERE  n.n_name = 'UNITED STATES'
+GROUP BY customer_name
+ORDER BY total_sales desc limit 5"
+"What are the top 10 customers that have the highest value of returned brass parts where each part is more than $10 in Germany?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * l.l_discount) as returned_parts_gross_value
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.supplier s
+        ON l.l_suppkey = s.s_suppkey join snowflake_sample_data.tpch_sf1.nation n
+        ON s.s_nationkey = n.n_nationkey
+WHERE  l.l_returnflag = 'R'
+   and n.n_name = 'GERMANY'
+   and l.l_extendedprice * (1 - l.l_discount) > 10
+   and l.l_partkey in (SELECT p.p_partkey
+                    FROM   snowflake_sample_data.tpch_sf1.part p
+                    WHERE  p.p_type like '%BRASS%')
+GROUP BY customer_name
+ORDER BY returned_parts_gross_value desc limit 10"
+"Can you provide the names and addresses of suppliers located in Canada who supply parts with names beginning with 'forest' and who have more than half of their total quantity supplied for these parts shipped within the year 1994?","select
+	s_name,
+	s_address
+from
+	supplier,
+	nation
+where
+	s_suppkey in (
+		select
+			ps_suppkey
+		from
+			partsupp
+		where
+			ps_partkey in (
+				select
+					p_partkey
+				from
+					part
+				where
+					p_name like 'forest%'
+			)
+			and ps_availqty > (
+				select
+					0.5 * sum(l_quantity)
+				from
+					lineitem
+				where
+					l_partkey = ps_partkey
+					and l_suppkey = ps_suppkey
+					and l_shipdate >= date '1994-01-01'
+                	AND l_shipdate < DATEADD(year, 1, '1994-01-01')
+			)
+	)
+	and s_nationkey = n_nationkey
+	and n_name = 'CANADA'
+order by
+	s_name;
+"
+"what are my tables? ","You can view your tables by running the following SQL statement:
+
+```
+SELECT table_name FROM information_schema.tables WHERE table_schema = '<your_database_name>';
+```
+
+Replace `<your_database_name>` with the name of your database."
+"What is the top 3 customers in China?","SELECT c.c_name as customer_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey
+WHERE  n.n_name = 'CHINA'
+GROUP BY customer_name
+ORDER BY total_sales desc limit 3;"
+"top 5 countries by sales","SELECT n.n_name as country_name,
+       sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
+FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
+        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
+        ON o.o_custkey = c.c_custkey join snowflake_sample_data.tpch_sf1.nation n
+        ON c.c_nationkey = n.n_nationkey
+GROUP BY country_name
+ORDER BY total_sales desc limit 5;"
+"What are the names of the top 3 customers with the highest total sales?","SELECT c.c_name AS customer_name, SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+GROUP BY customer_name
+ORDER BY total_sales DESC
+LIMIT 3"
+"What are the total sales by country for the top 10 countries in descending order?","SELECT
+  n.n_name AS country_name,
+  SUM(l.l_extendedprice * (1 - l.l_discount)) AS total_sales
+FROM
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON n.n_nationkey = c.c_nationkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON c.c_custkey = o.o_custkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l ON o.o_orderkey = l.l_orderkey
+GROUP BY
+  country_name
+ORDER BY
+  total_sales DESC
+LIMIT 10;"
+"What is the average discount for each region?","SELECT
+  r.r_name AS region_name,
+  AVG(l.l_discount) AS avg_discount
+FROM
+  SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM l
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS o ON l.l_orderkey = o.o_orderkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER c ON o.o_custkey = c.c_custkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.NATION n ON c.c_nationkey = n.n_nationkey
+  JOIN SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.REGION r ON n.n_regionkey = r.r_regionkey
+GROUP BY
+  region_name;"

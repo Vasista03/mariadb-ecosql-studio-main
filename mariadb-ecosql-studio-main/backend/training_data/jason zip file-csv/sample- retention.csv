@@ -1,0 +1,902 @@
+﻿"question","answer"
+"what are the 10 cities with most churned users in the 0-12 month tenure which have churned due to competitor related issue along with the overall churn percent in that city ? Plot churn % as a line, and the abs chured as a bar ","
+WITH churn_data AS (
+  SELECT city,
+         COUNT(CASE WHEN churn_reason ILIKE '%competitor%' AND customer_status = 'Churned' AND
+                         tenure_in_months BETWEEN 0 AND 12 THEN customer_id END) AS churned_competitor_users,
+         COUNT(CASE WHEN customer_status = 'Churned' AND tenure_in_months BETWEEN 0 AND 12 THEN customer_id END) AS churned_users,
+         COUNT(CASE WHEN tenure_in_months BETWEEN 0 AND 12 THEN customer_id END) AS total_users
+  FROM cutomer_retention.public.telecom_data
+  GROUP BY city
+)
+SELECT cd.city,
+       cd.churned_competitor_users,
+       cd.total_users,
+       cd.churned_users,
+       (cd.churned_users * 100.0 / cd.total_users) AS overall_churn_percent
+FROM churn_data cd
+WHERE cd.churned_competitor_users IS NOT NULL
+ORDER BY cd.churned_competitor_users DESC
+LIMIT 10;"
+"do married customers have more number of lines per user ?","SELECT married,
+       count(case when multiple_lines = 'Yes' then customer_id
+                  else null end) *100 / count(customer_id) as multiple_lines_percentage
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1;"
+"what 5 cities have the least % of customers using premium tech support, along with the numbers of customers in the city ?","SELECT city,
+       count(distinct customer_id) as total_customers,
+       count(distinct case when premium_tech_support = 'Yes' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as percentage_of_users_with_premium_tech_support
+FROM   cutomer_retention.public.telecom_data
+WHERE  city is not null
+GROUP BY city
+ORDER BY 3 asc limit 5;"
+"What is the percentage of users with premium tech support in each of the top 10 cities with the most customers","SELECT city,
+       count(distinct customer_id) as total_customers,
+       count(distinct case when premium_tech_support = 'Yes' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as percentage_with_premium_tech_support
+FROM   telecom_data
+WHERE  city in (SELECT city
+                FROM   telecom_data
+                GROUP BY city
+                ORDER BY count(distinct customer_id) desc limit 10)
+GROUP BY 1;"
+"what is the percentage of users with premium tech support in the each of top 10 cities with most customers, also give total number of customers.","SELECT city,
+       count(distinct customer_id) as total_customers,
+       count(distinct case when premium_tech_support = 'Yes' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as percentage_with_premium_tech_support
+FROM   telecom_data
+WHERE  city in (SELECT city
+                FROM   telecom_data
+                GROUP BY city
+                ORDER BY count(distinct customer_id) desc limit 10)
+GROUP BY 1;"
+"what is the 5 most popular churn reason across 2 cities with most customers where revenue made is greater than 500 ? ","with city_names as (SELECT city,
+                           count(*) as total_customers
+                    FROM   cutomer_retention.public.telecom_data
+                    GROUP BY 1
+                    ORDER BY 2 desc limit 2), city_revenue as (SELECT city,
+                                                  sum(total_charges) as revenue
+                                           FROM   cutomer_retention.public.telecom_data
+                                           GROUP BY city), churn_reasons as (SELECT churn_reason,
+                                         count(*) as total_churns
+                                  FROM   cutomer_retention.public.telecom_data
+                                  WHERE  customer_status = 'Churned'
+                                     and city in (SELECT city
+                                               FROM   city_names) and total_charges > 500
+                                  GROUP BY 1
+                                  ORDER BY 2 desc limit 5)
+SELECT cr.churn_reason,
+       cc.city,
+       revenue,
+       count(*) as total_churns
+FROM   cutomer_retention.public.telecom_data cc
+    INNER JOIN churn_reasons cr
+        ON cc.churn_reason = cr.churn_reason
+    INNER JOIN city_revenue crv
+        ON cc.city = crv.city
+WHERE  cc.city in (SELECT city
+                   FROM   city_names)
+GROUP BY 1, 2, revenue
+ORDER BY 4 desc;"
+"give me the distribution of average revenue per user.","SELECT width_bucket(total_revenue, 0, 10000, 20) *500 avg_revenue_bucket,
+       count(*) as user_count
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY 1"
+"what is the percentage of users with premium tech support in the each of top 10 cities with most customers ? ","SELECT city,
+       count(distinct case when premium_tech_support = 'Yes' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as percentage_of_users_with_premium_tech_support
+FROM   cutomer_retention.public.telecom_data
+WHERE  city in (SELECT city
+                FROM   cutomer_retention.public.telecom_data
+                WHERE  city is not null
+                GROUP BY city
+                ORDER BY count(distinct customer_id) desc limit 10)
+GROUP BY city;"
+"what is the churn % for the users who have greater than 2 referrals v/s those who dont ?  generate a bar chart ","SELECT case when NUMBER_OF_REFERRALS > 2 then 'Greater than 2 Referrals'
+            else '2 or Fewer Referrals' end as referral_group,
+       count(distinct case when customer_status = 'Churned' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as churn_percentage
+FROM   cutomer_retention.public.telecom_data
+GROUP BY referral_group"
+"what are the tenure wise churned churned users. bucket tenure as 6months order them properly","SELECT concat(floor(tenure_in_months/6) * 6,
+              '-',
+              floor(tenure_in_months/6) * 6 + 5) as tenure_range,
+       count(distinct case when customer_status = 'Churned' then customer_id
+                           else null end) as churned_users
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY min(tenure_in_months)"
+"what is the percentage of users with premium tech support in the each of top 10 cities with most customers, also give total number of customers? ","SELECT city,
+       count(distinct customer_id) as total_customers,
+       count(distinct case when premium_tech_support = 'Yes' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as percentage_of_users_with_premium_tech_support
+FROM   cutomer_retention.public.telecom_data
+WHERE  city in (SELECT city
+                FROM   cutomer_retention.public.telecom_data
+                WHERE  city is not null
+                GROUP BY city
+                ORDER BY count(distinct customer_id) desc limit 10)
+GROUP BY city"
+"plot churn% basis tenure as a bar chart, divide tenure into 10 buckets as a bar chart","SELECT concat(floor(tenure_in_months/10)*10,
+              '-',
+              floor(tenure_in_months/10)*10 + 9) as tenure_range,
+       count(distinct case when customer_status = 'Churned' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as churn_percentage
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY 1;"
+"what are top 5 reasons for churn in the data ? load a bar chart","SELECT churn_reason,
+       count(*) as total_churns
+FROM   cutomer_retention.public.telecom_data
+WHERE  customer_status = 'Churned'
+GROUP BY 1
+ORDER BY 2 desc limit 5;"
+"what is the distribution across payment method for the 100 customers with the highest total revenue ","SELECT payment_method,
+       count(*) as count
+FROM   cutomer_retention.public.telecom_data
+WHERE  customer_id in (SELECT customer_id
+                       FROM   cutomer_retention.public.telecom_data
+                       ORDER BY total_charges desc limit 100)
+GROUP BY payment_method;"
+"what are the tenure wise churned churned users where churn reason is something related to the competitor. bucket tenure as 6months order them properly","SELECT concat(floor(tenure_in_months/6) * 6,
+              '-',
+              floor(tenure_in_months/6) * 6 + 5) as tenure_range,
+       count(distinct case when customer_status = 'Churned' and
+                                churn_reason like '%competitor%' then customer_id
+                           else null end) as churned_users
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY min(tenure_in_months)"
+"what % of users with revenue less than 1500 have premium tech support ?","SELECT count(distinct case when premium_tech_support = 'Yes' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as percentage_of_users_with_premium_tech_support_for_revenue_less_than_1500
+FROM   cutomer_retention.public.telecom_data
+WHERE  total_revenue < 1500"
+"plot  churn% basis tenure as a bar chart, divide tenure into 10 buckets.","SELECT concat(floor(tenure_in_months/10)*10,
+              '-',
+              (floor(tenure_in_months/10)*10)+9) tenure_range,
+       count(distinct case when customer_status = 'Churned' then customer_id
+                           else null end)*100.0/count(distinct customer_id) churn_percentage
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY 1;"
+"what is the distribution of churned users across age compared it to stayed users? display as a % total","SELECT age_group,
+       round((churned_users*100.0) / (churned_users+stayed_users),
+             2) as churned_user_percentage,
+       round((stayed_users*100.0) / (churned_users+stayed_users),
+             2) as stayed_user_percentage
+FROM   (SELECT case when age between 18 and
+                         24 then '18-24'
+                    when age between 25 and
+                         34 then '25-34'
+                    when age between 35 and
+                         44 then '35-44'
+                    when age between 45 and
+                         54 then '45-54'
+                    when age between 55 and
+                         64 then '55-64'
+                    when age >= 65 then '65+'
+                    else 'Others' end as age_group,
+               count(distinct case when customer_status = 'Churned' then customer_id
+                                   else null end) as churned_users,
+               count(distinct case when customer_status = 'Stayed' then customer_id
+                                   else null end) as stayed_users
+        FROM   cutomer_retention.public.telecom_data
+        GROUP BY 1) t;"
+"what is the 5 most popular churn reason across 2 cities with most customers where revenue made if great than 500 ? ","with city_names as (SELECT city,
+                           count(*) as total_customers
+                    FROM   cutomer_retention.public.telecom_data
+                    GROUP BY 1
+                    ORDER BY 2 desc limit 2)
+SELECT churn_reason,
+       count(*) as total_churns
+FROM   cutomer_retention.public.telecom_data
+WHERE  city in (SELECT city
+                FROM   city_names) and customer_status = 'Churned' and total_charges > 500
+GROUP BY 1
+ORDER BY 2 desc limit 5"
+"what are the 3 cities with most churned users in the 0-12 month tenure which have churned due to competitor related issue ?","SELECT city,
+       count(*) as total_churned_users
+FROM   cutomer_retention.public.telecom_data
+WHERE  churn_reason ilike '%competitor%'
+   and customer_status = 'Churned'
+   and tenure_in_months between 0
+   and 12
+GROUP BY 1
+ORDER BY 2 desc limit 3;"
+"what 5 cities have the least % of customers using premium tech support ?","SELECT city,
+       count(distinct case when premium_tech_support = 'Yes' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as percentage_of_users_with_premium_tech_support
+FROM   cutomer_retention.public.telecom_data
+WHERE  city is not null
+GROUP BY city
+ORDER BY 2 asc limit 5;"
+"do married people stream music and movies more than unmarried people.","with user_data as (SELECT customer_id,
+                          married,
+                          streaming_movies,
+                          streaming_music
+                   FROM   cutomer_retention.public.telecom_data)
+SELECT married,
+       avg(case when streaming_music = 'Yes' then 1
+                else 0 end)*100 as music_streaming_percentage,
+       avg(case when streaming_movies = 'Yes' then 1
+                else 0 end)*100 as movie_streaming_percentage
+FROM   user_data
+GROUP BY married;"
+"what % of users with revenue less than 1500  and with revenue greater than 4000 have premium tech support ? Plot bar chart","SELECT bucket,
+       count(distinct case when premium_tech_support = 'Yes' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as percentage_of_users_with_premium_tech_support
+FROM   (SELECT customer_id,
+               case when total_revenue < 1500 then 'less than 1500'
+                    when total_revenue > 4000 then 'greater than 4000' end as bucket,
+               premium_tech_support
+        FROM   cutomer_retention.public.telecom_data
+        WHERE  total_revenue < 1500
+            or total_revenue > 4000) a
+GROUP BY bucket"
+"what are the 10 cities with most churned users in the 0-12 month tenure which have churned due to competitor related issue along with the overall churn percent in that city ?","with churn_data as (SELECT city,
+                           count(case when churn_reason ilike '%competitor%' and
+                                           customer_status = 'Churned' and
+                                           tenure_in_months between 0 and
+                                           12 then customer_id end) as churned_competitor_users,
+                           count(case when customer_status = 'Churned' and
+                                           tenure_in_months between 0 and
+                                           12 then customer_id end) as churned_users,
+                           count(case when tenure_in_months between 0 and
+                                           12 then customer_id end) as total_users
+                    FROM   cutomer_retention.public.telecom_data
+                    GROUP BY city)
+SELECT cd.city,
+       cd.churned_competitor_users,
+       cd.total_users,
+       cd.churned_users,
+       cd.churned_users*100.0/cd.total_users as overall_churn_percent
+FROM   churn_data cd
+WHERE  cd.churned_competitor_users is not null
+ORDER BY cd.churned_competitor_users desc limit 10;"
+"what is the distribution of revenue per customer  ? make buckets of size 500, a bar chart","SELECT count(*) as customer_count
+FROM   cutomer_retention.public.telecom_data
+ORDER BY 1"
+"give me churn % for each offer ","SELECT offer,
+       count(DISTINCT case when customer_status = 'Churned' then customer_id
+                  else null end)*100.0/count(DISTINCT customer_id) as churn_percentage
+FROM   cutomer_retention.public.telecom_data t
+GROUP BY offer;"
+"what combination of offer, multiple lines, contract gives me lead to what revenue per user along with their churn % ? ","SELECT offer,
+       multiple_lines,
+       contract,
+       sum(total_charges) / count(distinct customer_id) as revenue_per_user,
+       count(distinct case when customer_status = 'Churned' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as churn_percentage
+FROM   cutomer_retention.public.telecom_data
+GROUP BY offer, multiple_lines, contract
+ORDER BY revenue_per_user desc;"
+"what is the %churn basis their payment method ?","SELECT payment_method,
+       count(distinct case when customer_status = 'Churned' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as churn_percentage
+FROM   cutomer_retention.public.telecom_data
+GROUP BY payment_method;"
+"what is the 5 most popular churn reason across 2 cities with most customers where the revenue made from the customer is greater than 100 ? ","with city_names as (SELECT city,
+                           count(*) as total_customers
+                    FROM   cutomer_retention.public.telecom_data
+                    GROUP BY 1
+                    ORDER BY 2 desc limit 2), city_revenue as (SELECT city,
+                                                  sum(total_charges) as revenue
+                                           FROM   cutomer_retention.public.telecom_data
+                                           GROUP BY city), churn_reasons as (SELECT churn_reason,
+                                         count(*) as total_churns
+                                  FROM   cutomer_retention.public.telecom_data
+                                  WHERE  city in (SELECT city
+                                                  FROM   city_names) and total_charges > 100 and customer_status = 'Churned'
+                                  GROUP BY 1
+                                  ORDER BY 2 desc limit 5)
+SELECT cr.churn_reason,
+       cc.city,
+       revenue,
+       count(*) as total_churns
+FROM   cutomer_retention.public.telecom_data cc
+    INNER JOIN churn_reasons cr
+        ON cc.churn_reason = cr.churn_reason
+    INNER JOIN city_revenue crv
+        ON cc.city = crv.city
+WHERE  cc.city in (SELECT city
+                   FROM   city_names)
+GROUP BY 1, 2, revenue
+ORDER BY 4 desc;"
+"what is the % of users who had a refund amount for each customer status ?","SELECT customer_status,
+       count(distinct case when total_refunds > 0 then customer_id
+                           else null end) / count(distinct customer_id) as refund_percentage
+FROM   cutomer_retention.public.telecom_data
+GROUP BY customer_status"
+"give me the distribution of average revenue per user ","SELECT width_bucket(total_revenue, 0, 10000, 20) avg_revenue_bucket,
+       count(*) as user_count
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY 1"
+"what is the distribution of revenue per customer  ? make buckets of size 100, load a bar chart","SELECT width_bucket(total_revenue, 0, 10000, 100) * 100 as revenue_range,
+                  count(*) as customer_count
+           FROM   cutomer_retention.public.telecom_data
+           GROUP BY 1
+           ORDER BY 1"
+"display 10 rows of the telecom dataset ","SELECT *
+FROM cutomer_retention.public.telecom_data
+limit 10;"
+"what is the 5 most popular churn reason across 2 cities with most customers, the churned users must have greater than 500 revenue","with city_names as (SELECT city,
+                           count(*) as total_customers
+                    FROM   cutomer_retention.public.telecom_data
+                    GROUP BY 1
+                    ORDER BY 2 desc limit 2)
+SELECT churn_reason,
+       count(*) as total_churns
+FROM   cutomer_retention.public.telecom_data cc
+WHERE  city in (SELECT city
+                FROM   city_names) and customer_status = 'Churned' and total_revenue > 500
+GROUP BY 1
+ORDER BY 2 desc limit 5"
+"what the 5 zipcodes with most customers and their chrun%","SELECT zip_code,
+       count(*) as total_customers,
+       count(case when customer_status = 'Churned' then customer_id
+                  else null end)*100.0/count(*) as churn_percentage
+FROM   cutomer_retention.public.telecom_data
+WHERE  zip_code is not null
+GROUP BY zip_code
+ORDER BY 2 desc limit 5;"
+"Plot the distribution of total revenue per user ? ","SELECT total_revenue,
+       count(*) as user_count
+FROM   cutomer_retention.public.telecom_data
+GROUP BY total_revenue
+ORDER BY total_revenue"
+"give me churn % for each Internet Connection Type ?","SELECT internet_type,
+       count(distinct case when customer_status = 'Churned' then customer_id
+                           else null end)*100.0/count(distinct customer_id) as churn_percentage
+FROM   cutomer_retention.public.telecom_data t
+GROUP BY internet_type;"
+"what is the most popular churn reason across 2 cities with most customers ? ","with city_names as 
+(SELECT city,
+       count(*) as total_customers
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY 2 desc limit 2
+)
+
+SELECT churn_reason, 
+       COUNT(*)
+FROM cutomer_retention.public.telecom_data
+WHERE city in 
+  (
+   SELECT city 
+   FROM city_names
+  )
+GROUP BY 1 
+ORDER By 2 DESC "
+"what is the average revenue per user ","SELECT avg(total_revenue) as avg_revenue_per_user
+FROM   cutomer_retention.public.telecom_data;"
+"what % of customers have churn status as churned ?","SELECT count(*)*100.0/(SELECT count(*)
+                       FROM   cutomer_retention.public.telecom_data) as churn_percentage
+FROM   cutomer_retention.public.telecom_data
+WHERE  customer_status = 'Churned';
+"
+"what is the distribution across payment method for the 100 customers with the highest total revenue vs overall distribution ","-- Overall distribution
+SELECT payment_method,
+       count(*) as count
+FROM   cutomer_retention.public.telecom_data
+GROUP BY payment_method;"
+"do married people stream music and movies more than unmarried people ?","with user_data as (SELECT customer_id,
+                          married,
+                          streaming_movies,
+                          streaming_music
+                   FROM   cutomer_retention.public.telecom_data)
+SELECT married,
+       avg(case when streaming_music = 'Yes' then 1
+                else 0 end)*100 as music_streaming_percentage,
+       avg(case when streaming_movies = 'Yes' then 1
+                else 0 end)*100 as movie_streaming_percentage
+FROM   user_data
+GROUP BY married;"
+"what are top 5 cities with maximum churned users","SELECT city,
+       count(*) as total_churned_users
+FROM   cutomer_retention.public.telecom_data
+WHERE  customer_status = 'Churned'
+GROUP BY city
+ORDER BY total_churned_users desc limit 5;"
+"what % of churned users had an extra data charge vs what % of stayed users had an extra charge  ?","Corrected query:
+
+```
+SELECT customer_status,
+       COUNT(DISTINCT CASE WHEN total_extra_data_charges > 0 THEN customer_id ELSE NULL END) / COUNT(DISTINCT customer_id)
+FROM cutomer_retention.public.telecom_data
+WHERE customer_status IN ('Churned','Stayed')
+GROUP BY 1
+``` 
+
+The column name `total_extra_data_charge` was incorrect. It should be `total_extra_data_charges`."
+"what is the distribution of revenue per customer, bucket by total revenue at intervals of 500","SELECT width_bucket(total_revenue, 0, 10000, 500) * 500 as revenue_range,
+       count(*) as customer_count
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY 1"
+"what are the 4 biggest churn reasons ?","SELECT churn_reason,
+       count(*)
+FROM   cutomer_retention.public.telecom_data
+WHERE  customer_status = 'Churned'
+GROUP BY 1
+ORDER BY count(*) desc limit 4;"
+"what combination of offer, multiple lines, contract leads to what revenue per user along with their churn % ? ","SELECT offer,
+       multiple_lines,
+       contract,
+       sum(total_charges) / count(distinct customer_id) as revenue_per_user,
+       count(distinct case when customer_status = 'Churned' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as churn_percentage
+FROM   cutomer_retention.public.telecom_data
+GROUP BY offer, multiple_lines, contract
+ORDER BY revenue_per_user desc;"
+"what is the distribution across payment method for the 100 customers with the highest total revenue vs overall distribution across the payment methods .","The corrected SQL query is:
+
+```
+WITH top_100_dist AS (
+  SELECT customer_id, total_charges
+  FROM cutomer_retention.public.telecom_data
+  ORDER BY total_charges DESC 
+  LIMIT 100
+)
+SELECT 'top_100' AS distribution, payment_method, COUNT(*) AS count
+FROM cutomer_retention.public.telecom_data a
+WHERE customer_id IN (SELECT customer_id FROM top_100_dist)
+GROUP BY 1, 2
+UNION
+SELECT 'overall' AS distribution, payment_method, COUNT(*) AS count
+FROM cutomer_retention.public.telecom_data a
+GROUP BY 1, 2; 
+```
+
+The error occurred because there was text before the SQL code."
+"what is the distribution of revenue per customer  ?","SELECT case when total_revenue < 500 then '500' 
+            when total_revenue >=500 and total_revenue <1000 then '500-999'
+            when total_revenue >=1000 and total_revenue <1500 then '1000-1499'
+            when total_revenue >=1500 and total_revenue <2000 then '1500-1999'
+            when total_revenue >=2000 and total_revenue <2500 then '2000-2499'
+            when total_revenue >=2500 and total_revenue <3000 then '2500-2999'
+            when total_revenue >=3000 and total_revenue <3500 then '3000-3499'
+            else '>=3500' end as rev_bucket,
+       count(*) as customer_count
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1 
+ORDER BY 1"
+"What is the tenure of the users who have churned due to a competitor related issue","SELECT concat(floor(tenure_in_months/6) * 6,
+              '-',
+              floor(tenure_in_months/6) * 6 + 5) as tenure_range,
+       count(distinct case when churn_reason ilike '%competitor%' and
+                                customer_status = 'Churned' then customer_id
+                           else null end) as churned_users
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY min(tenure_in_months)
+"
+"What are the tenure wise churned users where churn reason is related to the competitor. ","SELECT concat(floor(tenure_in_months/6) * 6,
+              '-',
+              floor(tenure_in_months/6) * 6 + 5) as tenure_range,
+       count(distinct case when churn_reason ilike '%competitor%' and
+                                customer_status = 'Churned' then customer_id
+                           else null end) as churned_users
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY min(tenure_in_months)"
+"which 5 cities have the highest churned users due to attitude of customer support ?","SELECT city,
+       count(*) as total_churned_users
+FROM   cutomer_retention.public.telecom_data
+WHERE  churn_reason = 'Attitude of support person'
+   and customer_status = 'Churned'
+GROUP BY 1
+ORDER BY 2 desc limit 5;"
+"what is the distribution of churned users across age ? ","SELECT case when age between 18 and
+                 24 then '18-24'
+            when age between 25 and
+                 34 then '25-34'
+            when age between 35 and
+                 44 then '35-44'
+            when age between 45 and
+                 54 then '45-54'
+            when age between 55 and
+                 64 then '55-64'
+            when age >= 65 then '65+'
+            else 'Others' end as age_group,
+       count(case when customer_status = 'Churned' then customer_id
+                  else null end) as churned_users
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1;"
+"plot  churn% basis tenure as a bar chart, divide tenure into 10 buckets ","SELECT concat(floor(tenure_in_months/ 10) * 10,
+              '-',
+              floor(tenure_in_months/ 10) * 10 + 9) as tenure_range,
+       count(distinct case when customer_status = 'Churned' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as churn_percentage
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY 1"
+"what are the 10 cities with most churned users in the 0–12 month tenure which have churned due to competitor related issues along with the overall churn percent in that city ?","with churn_data as 
+(
+SELECT city,
+        count(case when churn_reason ilike '%competitor%' and
+               customer_status = 'Churned' and tenure_in_months between 0 and 12 then    customer_id end) as churned_competitor_users,
+         count(case when customer_status = 'Churned' and
+               tenure_in_months between 0 and 12 then customer_id end) as churned_users,
+         count(case when tenure_in_months between 0 and 12 then customer_id end) as total_users
+                    
+FROM   cutomer_retention.public.telecom_data
+GROUP BY city
+)
+
+
+
+
+SELECT cd.city,
+       cd.churned_competitor_users,
+       cd.total_users,
+       cd.churned_users,
+       (cd.churned_users * 100.0 / cd.total_users) as overall_churn_percent,
+       (cd.churned_competitor_users * 100.0 / cd.churned_users) as churned_competitor_percent
+FROM   churn_data cd
+WHERE  cd.churned_competitor_users is not null
+ORDER BY cd.churned_competitor_users desc limit 10;
+"
+"what is the churn % for the customers who a phone service v/s those who dont ?","SELECT phone_service,
+       count(distinct case when customer_status = 'Churned' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as churn_percentage
+FROM   cutomer_retention.public.telecom_data
+GROUP BY phone_service"
+"what are the 10 cities with most churned users in the 0-12 month tenure which have churned due to competitor related issue ?","SELECT city,
+       count(*) as total_churned_users
+FROM   cutomer_retention.public.telecom_data
+WHERE  churn_reason ilike '%competitor%'
+   and customer_status = 'Churned'
+   and tenure_in_months between 0
+   and 12
+GROUP BY 1
+ORDER BY 2 desc limit 10;"
+"what % of customers with dependants have multiple lines  v/s those who don't have ? ","SELECT case when number_of_dependents > 0 then 'Has dependants' else 'No dependants' end as cohort,
+       count(distinct case when multiple_lines = 'Yes' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as multiple_lines_percentage
+FROM   cutomer_retention.public.telecom_data
+GROUP BY cohort;"
+"what is the 5 most popular churn reason across 2 cities with most customers, the churned users must have greater than 100 revenue","with city_names as (SELECT city,
+                           count(*) as total_customers
+                    FROM   cutomer_retention.public.telecom_data
+                    GROUP BY 1
+                    ORDER BY 2 desc limit 2
+                    )
+
+SELECT churn_reason,
+       count(*) as total_churns
+FROM   cutomer_retention.public.telecom_data cc
+WHERE  city in (SELECT city
+                FROM   city_names) and customer_status = 'Churned' and total_revenue > 100
+GROUP BY 1
+ORDER BY 2 desc limit 5"
+"what is the churn% across males and females ?","SELECT gender,
+       count(case when customer_status = 'Churned' then customer_id else null end)*100.0/count(*) as churn_percentage
+FROM   cutomer_retention.public.telecom_data t
+GROUP BY gender;"
+"What % of users with less than 1500, and revenue greater than 4000 have premium tech support respectively ?","SELECT bucket,
+       count(distinct case when premium_tech_support = 'Yes' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as percentage_of_users_with_premium_tech_support
+FROM   (SELECT customer_id,
+               case when total_revenue < 1500 then 'less than 1500'
+                    when total_revenue > 4000 then 'greater than 4000' end as bucket,
+               premium_tech_support
+        FROM   cutomer_retention.public.telecom_data
+        WHERE  total_revenue < 1500
+            or total_revenue > 4000) a
+GROUP BY bucket
+"
+"What is the tenure of the users who have churned due to a competitor related issue.","SELECT concat(floor(tenure_in_months/6) * 6,
+              '-',
+              floor(tenure_in_months/6) * 6 + 5) as tenure_range,
+       count(distinct case when churn_reason ilike '%competitor%' and
+                                customer_status = 'Churned' then customer_id
+                           else null end) as churned_users
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY min(tenure_in_months)"
+"what are average, median, and 95th percentile monthly charges for churned users v/s stayed users  ?","SELECT customer_status,
+       avg(monthly_charge) as avg_monthly_charges,
+       percentile_cont(0.5) within group (ORDER BY monthly_charge) as median_monthly_charges,
+       percentile_cont(0.95) within group (ORDER BY monthly_charge) as percentile_95_monthly_charges
+FROM   cutomer_retention.public.telecom_data
+WHERE  monthly_charge is not null
+GROUP BY customer_status"
+"what is the 5 most popular churn reason across 2 cities with most customers ? ","with city_names as (SELECT city,
+                           count(*) as total_customers
+                    FROM   cutomer_retention.public.telecom_data
+                    GROUP BY 1
+                    ORDER BY 2 desc limit 2)
+SELECT churn_reason,
+       count(*) as total_churns
+FROM   cutomer_retention.public.telecom_data
+WHERE  city in (SELECT city
+                FROM   city_names) and customer_status = 'Churned'
+GROUP BY 1
+ORDER BY 2 desc limit 5"
+"what is the churn % for the customers who have a tenure of greater than 12 months and those who have a tenure of less than 12 months ?","SELECT case when tenure_in_months > 12 then 'Greater than 12 months'
+            else 'Less than 12 months' end as tenure_group,
+       count(distinct case when customer_status = 'Churned' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as churn_percentage
+FROM   cutomer_retention.public.telecom_data
+GROUP BY tenure_group"
+"Which are the top 10 cities with the highest number and percentage of users with less than 12 months who churned due to a competitor?","with churn_data as (SELECT city,
+                           count(case when churn_reason ilike '%competitor%' and
+                                           customer_status = 'Churned' and
+                                           tenure_in_months between 0 and
+                                           12 then customer_id end) as churned_competitor_users,
+                           count(case when customer_status = 'Churned' and
+                                           tenure_in_months between 0 and
+                                           12 then customer_id end) as churned_users,
+                           count(case when tenure_in_months between 0 and
+                                           12 then customer_id end) as total_users
+                    FROM   cutomer_retention.public.telecom_data
+                    GROUP BY city)
+SELECT cd.city,
+       cd.churned_competitor_users,
+       cd.total_users,
+       cd.churned_users,
+       (cd.churned_users * 100.0 / cd.total_users) as overall_churn_percent,
+       (cd.churned_competitor_users * 100.0 / cd.churned_users) as churned_competitor_percent
+FROM   churn_data cd
+WHERE  cd.churned_competitor_users is not null
+ORDER BY cd.churned_competitor_users desc limit 10;"
+"what are the top 5 reasons for churn of customers ? ","SELECT churn_reason,
+       count(*) as total_churns
+FROM   cutomer_retention.public.telecom_data
+WHERE  customer_status = 'Churned'
+GROUP BY 1
+ORDER BY 2 desc limit 5;"
+"what are the tenure wise churned churned users. bucket tenure as 6months ","SELECT concat(floor(tenure_in_months/ 6) * 6,
+              '-',
+              floor(tenure_in_months/ 6) * 6 + 5) as tenure_range,
+       count(distinct case when customer_status = 'Churned' then customer_id
+                           else null end) as churned_users
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY 1"
+"what are the 4 biggest churn categories ?","SELECT churn_category,
+       count(*)
+FROM   cutomer_retention.public.telecom_data
+WHERE  customer_status = 'Churned'
+GROUP BY 1
+ORDER BY count(*) desc limit 4;"
+"what % of users with revenue less than 1500  and with revenue greater than 4000 have premium tech support ?","SELECT bucket,
+       count(distinct case when premium_tech_support = 'Yes' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as percentage_of_users_with_premium_tech_support
+FROM   (SELECT customer_id,
+               case when total_revenue < 1500 then 'less than 1500'
+                    when total_revenue > 4000 then 'greater than 4000' end as bucket,
+               premium_tech_support
+        FROM   cutomer_retention.public.telecom_data
+        WHERE  total_revenue < 1500
+            or total_revenue > 4000) a
+GROUP BY bucket"
+"what is the distribution across payment method for the 100 customers with the highest total revenue vs overall distribution across the payment methods ","Here's the corrected SQL query:
+
+```
+-- Overall distribution
+WITH top_100_dist AS (
+  SELECT customer_id, total_revenue
+  FROM cutomer_retention.public.telecom_data
+  ORDER BY 2 DESC 
+  LIMIT 100
+)
+SELECT 'top_100', payment_method, count(*) AS count
+FROM cutomer_retention.public.telecom_data a 
+WHERE customer_id IN (SELECT customer_id FROM top_100_dist)
+GROUP BY 1,2
+UNION 
+SELECT 'overall', payment_method, count(*) AS count
+FROM cutomer_retention.public.telecom_data a 
+GROUP BY 1,2
+``` 
+
+I replaced `user_id` with `customer_id` in the `WHERE` clause of the first `SELECT` statement because the `customer_id` is the column being selected in the `WITH` clause."
+"which city has the highest churned users due to attitude of customer support ?","SELECT city,
+       count(*) as total_churned_users
+FROM   cutomer_retention.public.telecom_data
+WHERE  churn_reason = 'Attitude of support person'
+   and customer_status = 'Churned'
+GROUP BY 1
+ORDER BY 2 desc limit 1;"
+"What are the top 5 reasons for churn of customers ?","SELECT churn_reason,
+       count(*) as total_churns
+FROM   public.telecom_data
+WHERE  customer_status = 'Churned'
+GROUP BY churn_reason
+ORDER BY total_churns desc limit 5;"
+"what are the 2 biggest churn categories ?","SELECT churn_category,
+       count(*)
+FROM   cutomer_retention.public.telecom_data
+WHERE  customer_status = 'Churned'
+GROUP BY 1
+limit 2;"
+"what is the distribution of churned users across age compared it to stayed users?","SELECT age_group,
+       churned_users,
+       stayed_users
+FROM   (SELECT case when age between 18 and
+                         24 then '18-24'
+                    when age between 25 and
+                         34 then '25-34'
+                    when age between 35 and
+                         44 then '35-44'
+                    when age between 45 and
+                         54 then '45-54'
+                    when age between 55 and
+                         64 then '55-64'
+                    when age >= 65 then '65+'
+                    else 'Others' end as age_group,
+               count(distinct case when customer_status = 'Churned' then customer_id
+                                   else null end) as churned_users,
+               count(distinct case when customer_status = 'Stayed' then customer_id
+                                   else null end) as stayed_users
+        FROM   cutomer_retention.public.telecom_data
+        GROUP BY 1) t"
+"what is the distribution of churned users across age compared it to stayed users? ","SELECT age_group,
+       churned_users,
+       stayed_users
+FROM   (SELECT case when age between 18 and
+                         24 then '18-24'
+                    when age between 25 and
+                         34 then '25-34'
+                    when age between 35 and
+                         44 then '35-44'
+                    when age between 45 and
+                         54 then '45-54'
+                    when age between 55 and
+                         64 then '55-64'
+                    when age >= 65 then '65+'
+                    else 'Others' end as age_group,
+               count(distinct case when customer_status = 'Churned' then customer_id
+                                   else null end) as churned_users,
+               count(distinct case when customer_status = 'Stayed' then customer_id
+                                   else null end) as stayed_users
+        FROM   cutomer_retention.public.telecom_data
+        GROUP BY 1) t"
+"do married customers have more number of lines per user ","SELECT married,
+       COUNT(case when multiple_lines = 'Yes' then customer_id else null end) *100 / COUNT(customer_id) as multiple_lines_percentage
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1;"
+"plot  churn% basis tenure as a bar chart, divide tenure into 10 buckets as a bar chart. ","SELECT concat(floor(tenure_in_months / 10) * 10,
+              '-',
+              floor(tenure_in_months / 10) * 10 + 9) as tenure_range,
+       count(distinct case when customer_status = 'Churned' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as churn_percentage
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY tenure_range;"
+"does premium tech support lead to lesser churn %","SELECT premium_tech_support,
+       count(distinct case when customer_status = 'Churned' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as churn_percentage
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1"
+"what is the distribution of revenue per customer  ? make buckets of size 500, load a bar chart","SELECT width_bucket(total_revenue, 0, 10000, 500) * 500 as revenue_range,
+       count(*) as customer_count
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY 1"
+"what is the distribution of revenue per customer  ? make buckets of size 100","SELECT width_bucket(total_revenue, 0, 10000, 100) * 100 as revenue_range,
+       count(*) as customer_count
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY 1"
+"what combination of premium tech support and unlimited data leads to what % of churn","SELECT premium_tech_support,
+       unlimited_data,
+       count(case when customer_status = 'Churned' then customer_id
+                  else null end)*100.0/count(*) as churn_percentage
+FROM   cutomer_retention.public.telecom_data t
+GROUP BY premium_tech_support, unlimited_data;"
+"Question 2: What is the tenure of the users who have churned due to a Competitor related issue. ","SELECT concat(floor(tenure_in_months/6) * 6,'-',
+             floor(tenure_in_months/6) * 6 + 5) as tenure_range,
+       count(distinct case when churn_reason ilike '%competitor%' and  customer_status ilike '%churn%' then customer_id
+        else null end) as churned_users
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY min(tenure_in_months)
+"
+"what are top 5 reasons for churn in the data ?","SELECT churn_reason,
+       count(*) as total_churns
+FROM   cutomer_retention.public.telecom_data
+WHERE  customer_status = 'Churned'
+GROUP BY 1
+ORDER BY 2 desc limit 5;"
+"plot tenure wise churn% as a bar chart, divide tenure into 10 buckets","SELECT concat(floor(tenure_in_months/ 10) * 10,
+              '-',
+              floor(tenure_in_months/ 10) * 10 + 9) as tenure_range,
+       count(distinct case when customer_status = 'Churned' then customer_id
+                           else null end) * 100.0 / count(distinct customer_id) as churn_percentage
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY 1"
+"what are the 10 cities with most churned users in the 0-12 month tenure which have churned due to competitor related issue along with the overall churn percent in that city ? Plot churn % as a line, and the abs chured as a bar.","with churn_data as (SELECT city,
+                           count(case when churn_reason ilike '%competitor%' and
+                                           customer_status = 'Churned' and
+                                           tenure_in_months between 0 and
+                                           12 then customer_id end) as churned_competitor_users,
+                           count(case when customer_status = 'Churned' and
+                                           tenure_in_months between 0 and
+                                           12 then customer_id end) as churned_users,
+                           count(case when tenure_in_months between 0 and
+                                           12 then customer_id end) as total_users
+                    FROM   cutomer_retention.public.telecom_data
+                    GROUP BY city)
+SELECT cd.city,
+       cd.churned_competitor_users,
+       cd.total_users,
+       cd.churned_users,
+       (cd.churned_users * 100.0 / cd.total_users) as overall_churn_percent
+FROM   churn_data cd
+WHERE  cd.churned_competitor_users is not null
+ORDER BY cd.churned_competitor_users desc limit 10"
+"What is the distribution offers have we given to the users with revenue less than 1500  v/s those for revenue more than 4000.","with revenue as (SELECT customer_id,
+                        case when total_revenue  < 1500 then 'Less than 1500'
+                             when total_revenue  >= 1500 and total_revenue <= 4000 then '1500-4000'
+                             when total_revenue  >4000  then '>4000' end as bucket
+                  FROM   
+                        cutomer_retention.public.telecom_data
+                 )
+SELECT offer,
+       bucket,
+       count(*) as count
+FROM   cutomer_retention.public.telecom_data a
+LEFT JOIN revenue b 
+on a.customer_id = b.customer_id 
+GROUP BY offer, bucket
+ORDER BY count desc;"
+"Hey Vanna! What is the distribution of average revenue per user  ? ","SELECT width_bucket(total_revenue, 0, 10000, 20) *500 avg_revenue_bucket,
+       count(*) as user_count
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY 1"
+"what the 10 zipcodes with most customers and their churn%","SELECT zip_code,
+       count(*) as total_customers,
+       count(case when customer_status = 'Churned' then customer_id
+                  else null end)*100.0/count(*) as churn_percentage
+FROM   cutomer_retention.public.telecom_data
+WHERE  zip_code is not null
+GROUP BY zip_code
+ORDER BY 2 desc limit 10;"
+"what is the average revenue per customer ?","SELECT avg(total_revenue) as avg_revenue_per_customer
+FROM   cutomer_retention.public.telecom_data;"
+"what are the tenure wise churned users where churn reason is something related to the competitor. bucket tenure as 6months order them properly","SELECT concat(floor(tenure_in_months/6) * 6,
+              '-',
+              floor(tenure_in_months/6) * 6 + 5) as tenure_range,
+       count(distinct case when churn_reason ilike '%competitor%' and
+                                customer_status = 'Churned' then customer_id
+                           else null end) as churned_users
+FROM   cutomer_retention.public.telecom_data
+GROUP BY 1
+ORDER BY min(tenure_in_months)"
+"what 5 cities have the maximum  churn rate ?","SELECT city,
+       count(*),
+       count(case when customer_status = 'Churned' then customer_id else null end)/ count(*) as churn_percentage
+FROM   cutomer_retention.public.telecom_data
+WHERE  city is not null
+GROUP BY city
+ORDER BY churn_percentage desc limit 5;"
+"what is the % of users who had a refund amount &gt0 for each customer status ?","SELECT customer_status,
+       count(distinct case when total_refunds > 0 then customer_id
+                           else null end) / count(distinct customer_id) as refund_percentage
+FROM   cutomer_retention.public.telecom_data
+GROUP BY customer_status"
+"what combination of offer, multiple lines, contract gives me the most revenue per user ? ","SELECT offer,
+       multiple_lines,
+       contract,
+       sum(total_charges) / count(distinct customer_id) as revenue_per_user
+FROM   cutomer_retention.public.telecom_data
+GROUP BY offer, multiple_lines, contract
+ORDER BY revenue_per_user desc limit 1;"
+"Hey Vanna! Find me the average revenue per user ?","SELECT avg(total_revenue) as avg_revenue_per_user
+FROM   cutomer_retention.public.telecom_data;"
+"what is the % of married people v/s the % of unmarried people who stream music ","SELECT married,
+       count(case when streaming_music = 'Yes' then customer_id
+                  else null end) * 100.0 / count(customer_id) as streaming_music_percentage
+FROM   cutomer_retention.public.telecom_data
+GROUP BY married;"
+"Plot the distribution of total revenue per user using 10 deciles? ","SELECT ntile(10) OVER (ORDER BY total_revenue) as revenue_decile,
+       sum(total_revenue) as total_revenue_per_user
+FROM   cutomer_retention.public.telecom_data
+GROUP BY total_revenue"

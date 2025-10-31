@@ -1,0 +1,449 @@
+﻿"question","answer"
+"What is the engineer to product manager ratio in Facebook, Amazon, Google ? ","SELECT company,
+       count(case when title like '%Engineer%' then 1
+                  else null end) as engineer_count,
+       count(case when title like '%Product Manager%' then 1
+                  else null end) as product_manager_count,
+       count(case when title like '%Engineer%' then 1
+                  else null end) / count(case when title like '%Product Manager%' then 1
+                  else null end) as ratio
+FROM   salaries_data
+WHERE  company in ('Facebook', 'Amazon', 'Google')
+GROUP BY company;"
+"Which 3 cities has the highest average salary for software engineers at Google ? ","SELECT location,
+       avg(totalyearlycompensation) as average_salary
+FROM   salaries_data
+WHERE  company = 'Google'
+   and title like '%Software Engineer%'
+GROUP BY location
+ORDER BY average_salary desc limit 3;"
+"Which is the top 4 most common level of software engineers at amazon ?","SELECT level,
+       count(*) as count_employees
+FROM   salaries_data
+WHERE  company = 'Amazon'
+   and title like '%Software Engineer%'
+GROUP BY level
+ORDER BY count_employees desc limit 4;"
+"what is the most compensated title related to software engineering at Google ?","SELECT title,
+       max(totalyearlycompensation) as max_compensation
+FROM   salaries_data
+WHERE  company = 'Google'
+   and title like '%Software Engineer%'
+GROUP BY title
+ORDER BY max_compensation desc limit 1;"
+"What is average total years of experience related to the 5 most popular job titles?","SELECT title,
+       avg(yearsofexperience) as average_years_of_experience
+FROM   salaries_data
+WHERE  title in (SELECT title
+                 FROM   (SELECT title,
+                                count(*) as title_count
+                         FROM   salaries_data
+                         GROUP BY title
+                         ORDER BY title_count desc limit 5))
+GROUP BY title;"
+"What 5 companies have the highest average total compensation salaries in the top 25 employers?","SELECT company,
+       avg(totalyearlycompensation) as average_compensation
+FROM   salaries_data
+WHERE  company in (SELECT company
+                   FROM   salaries_data
+                   GROUP BY company
+                   ORDER BY count(*) desc limit 25)
+GROUP BY company
+ORDER BY average_compensation desc limit 5;"
+"What company has the most analysts in the top 50 employers ?","SELECT company,
+       count(*) as analyst_count
+FROM   salaries_data
+WHERE  title ilike '%Analyst%'
+   and company in (SELECT company
+                FROM   salaries_data
+                GROUP BY company
+                ORDER BY count(*) desc limit 50)
+GROUP BY company
+ORDER BY analyst_count desc limit 1;"
+"what are 10 common designation for employees ? ","SELECT title,
+       count(*) as count_employees
+FROM   salaries_Data
+GROUP BY 1
+ORDER BY count_employees desc limit 10;"
+"What is average total years of experience related to the 5 most popular job titles  ? Load bar chart","Apologies, but I'm unable to assist."
+"Which 5 company has the highest avg stock value grants among the top 40 employers? ","SELECT company,
+       avg(stockgrantvalue) as average_stock_value
+FROM   salaries_data
+WHERE  company in (SELECT company
+                   FROM   salaries_data
+                   GROUP BY company
+                   ORDER BY count(*) desc limit 40)
+GROUP BY company
+ORDER BY average_stock_value desc limit 5;"
+"which 7 companies have the highest % of asians  employees, in the top 20 employers by size ? Draw bar chart ","SELECT company,
+       count(case when race = 'Asian' then 1
+                  else null end) * 100.0 / count(*) as asian_percentage
+FROM   salaries_data
+WHERE  company in (SELECT company
+                   FROM   salaries_data
+                   GROUP BY company
+                   ORDER BY count(*) desc limit 20)
+GROUP BY company
+ORDER BY asian_percentage desc limit 7;"
+"compare the spearman's correlation between yearsofexperience and basesalary and yearsatcompany and basesalary ","The corrected SQL query is:
+
+```
+SELECT corr(rank_experience, rank_salary) as spearman_correlation_experience_salary,
+       corr(rank_years, rank_salary) as spearman_correlation_years_salary
+FROM (
+  SELECT yearsofexperience,
+         basesalary,
+         yearsatcompany,
+         RANK() OVER (ORDER BY yearsofexperience) as rank_experience,
+         RANK() OVER (ORDER BY basesalary) as rank_salary,
+         RANK() OVER (ORDER BY yearsatcompany) as rank_years
+  FROM salaries_data
+) subquery;
+```
+
+The error occurred because the query was starting with ""Spearman's correlation is not directly available in SQL."" This text is not valid SQL syntax and should be removed."
+"What % of amazon engineers have a doctorate , master or a bachelors degree ? ","SELECT case when doctorate_degree = 1 then 'Doctorate Degree'
+            when masters_degree = 1 then 'Master''s Degree'
+            when bachelors_degree = 1 then 'Bachelor''s Degree'
+            else 'Other' end as education_level,
+       avg(totalyearlycompensation) as average_compensation
+FROM   salaries_data
+GROUP BY education_level;"
+"what is the avg compensation of a doctorate, a bachelor's and a master's employee ","SELECT case when doctorate_degree = 1 then 'A. Doctorate Degree'
+            when masters_degree = 1 and doctorate_degree = 0 then 'B. Masters Degree' 
+            when bachelors_degree = 1 and masters_degree = 0 and doctorate_degree= 0 then 'C. Bachelors Degree' 
+            else ' D. Others' end as education_level,
+       avg(totalyearlycompensation) as average_compensation
+FROM   salaries_data
+GROUP BY 1;"
+"What are the total number of companies in the data ?","SELECT count(distinct company) as total_companies
+FROM   salaries_data;"
+"Which 3 cities have the highest average salary for a software engineers at Google? ","SELECT location,
+       avg(totalyearlycompensation) as average_salary
+FROM   salaries_data
+WHERE  company = 'Google'
+   and title like '%Software Engineer%'
+GROUP BY location
+ORDER BY average_salary desc limit 3;"
+"compare the correlation coefficient of yearsofexperience, yearsatcompany with total compensation ","SELECT corr(yearsofexperience,
+            totalyearlycompensation) as correlation_experience_compensation,
+       corr(yearsatcompany, totalyearlycompensation) as correlation_years_compensation
+FROM   salaries_data;"
+"what are different tags in the data ?","SELECT DISTINCT tag
+FROM   salaries_data;"
+"what 3 locations have the highest avg yearly compensation at Apple for Software Engineers?","SELECT location,
+       avg(totalyearlycompensation) as average_compensation
+FROM   salaries_data
+WHERE  company = 'Apple'
+   and title = 'Software Engineer'
+GROUP BY location
+ORDER BY average_compensation desc limit 3;"
+"what are count of asian vs no asians in the data ","SELECT race_asian, COUNT(*) as count_asian
+FROM   salaries_data
+GROUP By 1
+"
+"Which 7 companies have the highest % of asians  employees, in the top 20 employers by size?","SELECT company,
+       count(case when race = 'Asian' then 1
+                  else null end) * 100.0 / count(*) as asian_percentage
+FROM   salaries_data
+WHERE  company in (SELECT company
+                   FROM   salaries_data
+                   GROUP BY company
+                   ORDER BY count(*) desc limit 20)
+GROUP BY company
+ORDER BY asian_percentage desc limit 7;"
+"compare the correlation between years of experience and base salary and years at company and basesalary ","SELECT corr(yearsofexperience, basesalary) as correlation_experience_salary,
+       corr(yearsatcompany, basesalary) as correlation_years_salary
+FROM   salaries_data;"
+"What is the engineer to product manager ratio in Facebook, Amazon and Google?","SELECT company,
+       count(case when title like '%Engineer%' then 1
+                  else null end) as engineer_count,
+       count(case when title like '%Product Manager%' then 1
+                  else null end) as product_manager_count,
+       count(case when title like '%Engineer%' then 1
+                  else null end) / count(case when title like '%Product Manager%' then 1
+                  else null end) as ratio
+FROM   salaries_data
+WHERE  company in ('Facebook', 'Amazon', 'Google')
+GROUP BY company;"
+"Which 4 locations have the most employees ?","SELECT location,
+       count(*) as employee_count
+FROM   salaries_data
+GROUP BY location
+ORDER BY employee_count desc limit 4;"
+"what 5 companies have the highest average base salaries ?","SELECT company,
+       avg(basesalary) as average_salary
+FROM   salaries_data
+GROUP BY company
+ORDER BY average_salary desc limit 5;"
+"what are different levels related to software engineering roles at apple ?","SELECT DISTINCT level
+FROM   salaries_data
+WHERE  company = 'Apple'
+   and title ilike '%Software%';"
+"Which is the most common level of software engineers at amazon ","SELECT level,
+       count(*) as count_employees
+FROM   salaries_data
+WHERE  company = 'Amazon'
+   and title like '%Software Engineer%'
+GROUP BY level
+ORDER BY count_employees desc limit 1;"
+"Which 3 cities have the highest average salary for software engineers at Google ? ","SELECT location,
+       avg(totalyearlycompensation) as average_salary
+FROM   salaries_data
+WHERE  company = 'Google'
+   and title like '%Software Engineer%'
+GROUP BY location
+ORDER BY average_salary desc limit 3;"
+"what are top 4 biggest employers ? ","SELECT company,
+       count(*) as employee_count
+FROM   salaries_data
+GROUP BY company
+ORDER BY employee_count desc limit 4;"
+"Which 5 company has the highest avg stock value grants among the top 25 employers? Load suitable bar chart","SELECT company,
+       avg(stockgrantvalue) as average_stock_value
+FROM   salaries_data
+WHERE  company in (SELECT company
+                   FROM   salaries_data
+                   GROUP BY company
+                   ORDER BY count(*) desc limit 25)
+GROUP BY company
+ORDER BY average_stock_value desc limit 5;"
+"How much do employees with a bachelor's, master's, and doctorate earn on average respectively? ","SELECT case when doctorate_degree = 1 then 'Doctorate Degree'
+            when masters_degree = 1 then 'Master''s Degree'
+            when bachelors_degree = 1 then 'Bachelor''s Degree'
+            else 'Other' end as education_level,
+       avg(totalyearlycompensation) as average_compensation
+FROM   salaries_data
+GROUP BY education_level;"
+"Which is the top 4 most common level of software engineers and their median salary at amazon ?","SELECT level,
+       COUNT(*),
+       median(totalyearlycompensation) as median_salary
+FROM   salaries_data
+WHERE level in  
+   (SELECT level
+    FROM salaries_data
+    WHERE company = 'Amazon'
+    GROUP BY level
+    ORDER BY COUNT(*) DESC
+    LIMIT 4)
+   and title like '%Software Engineer%'
+GROUP BY level
+ORDER BY median_salary desc
+LIMIT 4;"
+"What is average total years of experience related to the 5 most popular titles?","SELECT title,
+       avg(yearsofexperience) as average_years_of_experience
+FROM   salaries_data
+WHERE  title in (SELECT title
+                 FROM   (SELECT title,
+                                count(*) as title_count
+                         FROM   salaries_data
+                         GROUP BY title
+                         ORDER BY title_count desc limit 5))
+GROUP BY title;"
+"what are count of masters degree holders v/s non masters ","SELECT masters_degree,
+       count(*) as count_education
+FROM   salaries_data
+GROUP BY 1;"
+"What is  the correlation coefficient of yearsofexperience, yearsatcompany with total compensation ","SELECT corr(yearsofexperience,
+            totalyearlycompensation) as correlation_experience_compensation,
+       corr(yearsatcompany, totalyearlycompensation) as correlation_years_compensation
+FROM   salaries_data;"
+"what are count of hispanic and non hispanic people in the data ","SELECT race_hispanic,
+       count(*) as count_hispanic
+FROM   salaries_data
+GROUP BY 1;"
+"which 7 companies have the highest % of asians  employees, in the top 5 employers by size ?","SELECT company,
+       count(case when race = 'Asian' then 1
+                  else null end) * 100.0 / count(*) as asian_percentage
+FROM   salaries_data
+WHERE  company in (SELECT company
+                   FROM   salaries_data
+                   GROUP BY company
+                   ORDER BY count(*) desc limit 5)
+GROUP BY company
+ORDER BY asian_percentage desc limit 7;"
+"compare the pearson's correlation between yearsofexperience and basesalary and yearsatcompany and basesalary ","SELECT corr(yearsofexperience, basesalary) as correlation_experience_salary,
+       corr(yearsatcompany, basesalary) as correlation_years_salary
+FROM   salaries_data;"
+"what 3 locations have the highest avg yearly compensation at Apple for Software Engineers ?","SELECT location,
+       avg(totalyearlycompensation) as average_compensation
+FROM   salaries_data
+WHERE  company = 'Apple'
+   and title = 'Software Engineer'
+GROUP BY location
+ORDER BY average_compensation desc limit 3;"
+"what location has the highest avg yearly compensation at Apple for Software Engineers ?","SELECT location,
+       avg(totalyearlycompensation) as average_compensation
+FROM   salaries_data
+WHERE  company = 'Apple'
+   and title = 'Software Engineer'
+GROUP BY location
+ORDER BY average_compensation desc limit 1;"
+"What is the avg compensation of employees basis their race ? ","SELECT race,
+       avg(totalyearlycompensation) as average_compensation
+FROM   salaries_data
+GROUP BY race;"
+"What 5 companies have the highest average total compensation salaries ?","SELECT company,
+       avg(totalyearlycompensation) as average_compensation
+FROM   salaries_data
+GROUP BY company
+ORDER BY average_compensation desc limit 5;"
+"what 3 most compensated employees in the data, what are their roles, companies, and locations  ?","SELECT 
+       title,
+       company,
+       location,
+       totalyearlycompensation
+FROM   salaries_data
+ORDER BY totalyearlycompensation desc limit 3;"
+"Which company ahs the highest stock value grants among the top 25 employers ?","SELECT company,
+       avg(stockgrantvalue) as total_stock_value
+FROM   salaries_data
+WHERE  company in (SELECT company
+                   FROM   salaries_data
+                   GROUP BY company
+                   ORDER BY count(*) desc limit 25)
+GROUP BY company
+ORDER BY total_stock_value desc limit 1;"
+"What is the % of employees having a master's degree basis their race ? ","SELECT race,
+       count(case when masters_degree = 1 then 1
+                  else null end) * 100.0 / count(*) as percentage_masters
+FROM   salaries_data
+GROUP BY race;"
+"what 3 most compensated title related to software engineering at Google ?","SELECT title,
+       max(totalyearlycompensation) as max_compensation
+FROM   salaries_data
+WHERE  company = 'Google'
+   and title like '%Software Engineer%'
+GROUP BY title
+ORDER BY max_compensation desc limit 3;"
+"what are different levels related to software engineering roles at apple, along with number of employees  ?","SELECT level,
+       count(*) as count_employees
+FROM   salaries_data
+WHERE  company = 'Apple'
+   and title like '%Software Engineer%'
+GROUP BY level
+ORDER BY count_employees DESC;"
+"which 7 companies have the highest % of asians  employees, in the top 20 employers by size ?","SELECT company,
+       count(case when race = 'Asian' then 1
+                  else null end) * 100.0 / count(*) as asian_percentage
+FROM   salaries_data
+WHERE  company in (SELECT company
+                   FROM   salaries_data
+                   GROUP BY company
+                   ORDER BY count(*) desc limit 20)
+GROUP BY company
+ORDER BY asian_percentage desc limit 7;"
+"Which 5 company has the highest avg stock value grants among the top 25 employers ?","SELECT company,
+       avg(stockgrantvalue) as average_stock_value
+FROM   salaries_data
+WHERE  company in (SELECT company
+                   FROM   salaries_data
+                   GROUP BY company
+                   ORDER BY count(*) desc limit 25)
+GROUP BY company
+ORDER BY average_stock_value desc limit 5;"
+"which 2 companies have the highest % of asians  employees, in the top 5 employers by size ?","SELECT company,
+       count(case when race = 'Asian' then 1
+                  else null end) * 100.0 / count(*) as asian_percentage
+FROM   salaries_data
+WHERE  company in (SELECT company
+                   FROM   salaries_data
+                   GROUP BY company
+                   ORDER BY count(*) desc limit 5)
+GROUP BY company
+ORDER BY asian_percentage desc limit 2;"
+"What is average total years of experience related to the 5 most popular job titles  ?","SELECT title,
+       avg(yearsofexperience) as average_years_of_experience
+FROM   salaries_data
+WHERE  title in (SELECT title
+                 FROM   (SELECT title,
+                                count(*) as title_count
+                         FROM   salaries_data
+                         GROUP BY title
+                         ORDER BY title_count desc limit 5))
+GROUP BY title;"
+"Which location have the most employees ?","SELECT location,
+       count(*) as employee_count
+FROM   salaries_data
+GROUP BY location
+ORDER BY employee_count desc limit 1;"
+"What is average total years of experience related to the 5 most popular job titles ?","SELECT title,
+       ROUND(avg(yearsofexperience),2) as average_years_of_experience
+FROM   salaries_data
+WHERE  title in (SELECT title
+                 FROM   (SELECT title,
+                                count(*) as title_count
+                         FROM   salaries_data
+                         GROUP BY title
+                         ORDER BY title_count desc limit 5))
+GROUP BY title;"
+"What is the average salary of employees?","SELECT AVG(salary) FROM employees"
+"Which 3 cities have the highest average salary for a software engineers at Google ? ","SELECT location,
+       avg(totalyearlycompensation) as average_salary
+FROM   salaries_data
+WHERE  company = 'Google'
+   and title like '%Software Engineer%'
+GROUP BY location
+ORDER BY average_salary desc limit 3;"
+"What is the engineer to product manager ratio in FAANG companies?","SELECT company,
+       count(case when title like '%Engineer%' then 1
+                  else null end) / count(case when title like '%Product Manager%' then 1
+                  else null end) as ratio
+FROM   salaries_data
+WHERE  company in ('Facebook', 'Amazon', 'Apple', 'Netflix', 'Google')
+GROUP BY company;"
+"what are different titles in the data ?","SELECT DISTINCT title
+FROM   salaries_data;"
+"What is average total years of experience related to the most popular titles ?","SELECT title,
+       avg(yearsofexperience) as average_years_of_experience
+FROM   salaries_data
+WHERE title in 
+( SELECT title FROM
+   (
+      SELECT title, COUNT(*)
+      FROM salaries_data
+      GROUP BY 1 
+      ORDER BY 2 DESC 
+      LIMIT 5
+   )
+)
+GROUP BY title;"
+"what 5 companies have the highest total yearly compensation ? ","SELECT company,
+       avg(TOTALYEARLYCOMPENSATION) as total_compensation
+FROM   salaries_data
+GROUP BY company
+ORDER BY total_compensation desc limit 5;"
+"What 5 companies have the most analysts in the top 50 employers ?","SELECT company,
+       count(*) as analyst_count
+FROM   salaries_data
+WHERE  title like '%Analyst%'
+   and company in (SELECT company
+                FROM   salaries_data
+                GROUP BY company
+                ORDER BY count(*) desc limit 50)
+GROUP BY company
+ORDER BY analyst_count desc limit 5;"
+"What is the engineer to product manager ratio in Facebook, Amazon and Google ? ","SELECT company,
+       count(case when title like '%Engineer%' then 1
+                  else null end) /
+       count(case when title like '%Product Manager%' then 1
+                  else null end) as ratio
+FROM   salaries_data
+WHERE  company in ('Facebook', 'Amazon', 'Google')
+GROUP BY company;"
+"Which city has the highest average salary for software engineers at Google ? ","SELECT location,
+       avg(totalyearlycompensation) as average_salary
+FROM   salaries_data
+WHERE  company = 'Google'
+   and title like '%Software Engineer%'
+GROUP BY location
+ORDER BY average_salary desc limit 1;"
+"Which 5 company has the highest avg stock value grants among the top 40 employers? Load suitable bar chart","SELECT company,
+       avg(stockgrantvalue) as average_stock_value
+FROM   salaries_data
+WHERE  company in (SELECT company
+                   FROM   salaries_data
+                   GROUP BY company
+                   ORDER BY count(*) desc limit 40)
+GROUP BY company
+ORDER BY average_stock_value desc limit 5;"

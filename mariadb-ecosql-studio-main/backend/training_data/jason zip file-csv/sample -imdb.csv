@@ -1,0 +1,63 @@
+﻿"question","answer"
+"what are 5 most grossing movies in IMDB top 1000 ","SELECT series_title,
+       gross
+FROM   imdb.public.movies
+ORDER BY gross desc limit 5;"
+"what are the top 5 movies and their ratings basis IMDB rating ? ","SELECT series_title,
+       imdb_rating
+FROM   imdb.public.movies
+ORDER BY imdb_rating desc limit 5"
+"which 5 director have the most number of movies in the IMDB top 1000 ? ","SELECT director,
+       count(*) as num_of_movies
+FROM   imdb.public.movies
+GROUP BY director
+ORDER BY num_of_movies desc limit 5;"
+"what are the top 5 movies and their ratings basis IMDB ? ","SELECT series_title,
+       imdb_rating
+FROM   imdb.public.movies
+ORDER BY imdb_rating desc limit 5"
+"what is the distribution of imdb top 1000 movies across the release year ?","SELECT released_year, count(*) as num_movies
+FROM   imdb.public.movies
+GROUP BY 1
+ORDER BY 1;"
+"What are the 5 best rated action movies ? ","SELECT series_title,
+       imdb_rating
+FROM   imdb.public.movies
+WHERE  genre = 'Action'
+ORDER BY imdb_rating desc limit 5;"
+"What are the top 2 rated movies of ingmar bergman in drama genre and what are the lead actors in the movies ?","SELECT series_title,
+       star1,
+       imdb_rating
+FROM   imdb.public.movies
+WHERE  director = 'Ingmar Bergman'
+   and genre = 'Drama'
+ORDER BY imdb_rating desc limit 2;;"
+"what are the top 5 movies basis IMDB rating ? ","SELECT series_title
+FROM IMDB.PUBLIC.MOVIES
+ORDER BY imdb_rating DESC
+LIMIT 5"
+"which 5 director has the most number of movies in the IMDB top 1000 ? ","```
+SELECT director,
+       count(*) as num_movies
+FROM   imdb.public.movies
+WHERE  imdb_rating <= 1000
+GROUP BY director
+ORDER BY num_movies desc limit 5;
+```"
+"what is the average IMDB rating for each genre ? ","SELECT genre,
+       avg(imdb_rating) as avg_imdb_rating
+FROM   imdb.public.movies
+GROUP BY genre;"
+"what is the genre wise, average IMDB rating ? ","SELECT genre,
+       avg(imdb_rating) as avg_imdb_rating
+FROM   imdb.public.movies
+GROUP BY genre;"
+"What is the runtime of Forest Gump, Saving Private Ryan and The Green Mile","SELECT series_title,
+       runtime
+FROM   imdb.public.movies
+WHERE  series_title in ('Forrest Gump', 'Saving Private Ryan', 'The Green Mile');"
+"what is the distribution of titles on IMDB across genres ? ","SELECT genre,
+       count(*) as num_titles
+FROM   imdb.public.movies
+GROUP BY genre
+ORDER BY num_titles desc;"

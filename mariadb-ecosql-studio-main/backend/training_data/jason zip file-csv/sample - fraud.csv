@@ -1,0 +1,287 @@
+﻿"question","answer"
+"what % of frauds v/s non fraud transactions leave the new balance of the origin account to 0?","SELECT  'fraud' as type,
+        sum(case when isfraud = 1 and
+                     newbalanceorig = 0 then 1
+                else 0 end) * 100 / sum(case when isfraud = 1 then 1
+                else 0 end) as fraud_percentage    
+FROM   paysim_table.base_data
+GROUP BY 1 
+
+UNION 
+
+SELECT 'non fraud' as type,
+       sum(case when isfraud = 0 and
+                     newbalanceorig = 0 then 1
+                else 0 end) * 100 / sum(case when isfraud = 0 then 1
+                else 0 end) as non_fraud_percentage
+FROM   paysim_table.base_data
+GROUP BY 1"
+"what is the mean, median, 95th percentile, and 99th percentile amount transferred grouped by if it is fraud vs not","SELECT isfraud,
+       avg(amount) as mean_amount,
+       percentile_cont(0.5) within group (ORDER BY amount) as median_amount,
+       percentile_cont(0.95) within group (ORDER BY amount) as percentile_95th,
+       percentile_cont(0.99) within group (ORDER BY amount) as percentile_99th
+FROM   paysim_table.base_data
+GROUP BY isfraud"
+"what is destination account received most number of transfers through frauds ?","SELECT namedest,
+       count(*) as num_transfers
+FROM   paysim_table.base_data
+WHERE  isfraud = 1
+GROUP BY namedest
+ORDER BY num_transfers desc limit 1"
+"what is the % of fraud across each payment method. ?","SELECT type,
+       count(case when isfraud = 1 then 1 end) * 100 / count(*) as fraud_percentage
+FROM   paysim_table.base_data
+GROUP BY type;"
+"give the count of transactions  and frauds across the type of payments?","SELECT type,
+       count(*) as num_transactions,
+       count(case when isfraud = 1 then 1 end) as num_frauds
+FROM   paysim_table.base_data
+GROUP BY type;"
+"what % of frauds v/s non fraud transactions leave the new balance of the origin account to 0. Plot bar chart.","SELECT 'fraud' as type,
+       sum(case when isfraud = 1 and
+                     newbalanceorig = 0 then 1
+                else 0 end) * 100 / sum(case when isfraud = 1 then 1
+                else 0 end) as fraud_percentage
+FROM   paysim_table.base_data
+UNION
+SELECT 'non fraud' as type,
+       sum(case when isfraud = 0 and
+                     newbalanceorig = 0 then 1
+                else 0 end) * 100 / sum(case when isfraud = 0 then 1
+                else 0 end) as non_fraud_percentage
+FROM   paysim_table.base_data;"
+"what are the 5 lowest amount frauds ?","SELECT amount,
+       nameorig,
+       namedest
+FROM   paysim_table.base_data
+WHERE  isfraud = 1
+ORDER BY amount asc limit 5;"
+" what are the total number of transactions in the dataset ","SELECT count(*) as num_transactions
+FROM   paysim_table.base_data;"
+"give the % transactions are frauds across the type of payments?","SELECT type,
+       count(case when isfraud = 1 then 1 end) * 100 / count(*) as fraud_percentage
+FROM   paysim_table.base_data
+GROUP BY type;"
+"what is the mean, median, 95th percentile, and 99th percentile amount transferred via fraud ?","SELECT avg(amount) as mean_amount,
+       percentile_cont(0.5) within group (ORDER BY amount) as median_amount,
+       percentile_cont(0.95) within group (ORDER BY amount) as percentile_95th,
+       percentile_cont(0.99) within group (ORDER BY amount) as percentile_99th
+FROM   paysim_table.base_data
+WHERE  isfraud = 1;"
+"what % of frauds leave the new balance of the origin account to 0? compare this to non frauds","SELECT 
+       sum(case when isfraud = 1 and newbalanceorig = 0 then 1 else 0 end) * 100 / sum(case when isfraud = 1 then 1 else 0 end) as fraud_percentage,
+       sum(case when isfraud = 0 and newbalanceorig = 0 then 1 else 0 end) * 100 / sum(case when isfraud = 0 then 1 else 0 end) as non_fraud_percentage
+FROM   paysim_table.base_data
+"
+"the % of frauds with origin accounts and destination accounts that start with letter C vs letter M\","SELECT sum(case when isfraud = 1 and
+                     substr(nameorig, 1, 1) = 'C' and
+                     substr(namedest, 1, 1) = 'C' then 1
+                else 0 end) * 100 / sum(case when isfraud = 1 then 1
+                else 0 end) as cc_fraud_percentage,
+       sum(case when isfraud = 1 and
+                     substr(nameorig, 1, 1) = 'M' and
+                     substr(namedest, 1, 1) = 'M' then 1
+                else 0 end) * 100 / sum(case when isfraud = 1 then 1
+                else 0 end) as mm_fraud_percentage
+FROM   paysim_table.base_data"
+"how many frauds are of value greater than 1 million and how many are less than 1 million ?","SELECT case when amount >= 1000000 then 'greater than 1 million' else 'less than 1 million' end as type, count(*) as num_greater
+FROM   paysim_table.base_data
+WHERE  isfraud = 1
+GROUP By 1"
+"what is the mean, median, 95th percentile, and 99th percentile amount transferred if it fraud v/s when it's not fraud","SELECT isfraud,
+       avg(amount) as mean_amount,
+       percentile_cont(0.5) within group (ORDER BY amount) as median_amount,
+       percentile_cont(0.95) within group (ORDER BY amount) as percentile_95th,
+       percentile_cont(0.99) within group (ORDER BY amount) as percentile_99th
+FROM   paysim_table.base_data
+GROUP BY isfraud"
+"what % of frauds leave the new balance of the origin account to 0? compare this to non frauds.","SELECT sum(case when isfraud = 1 and
+                     newbalanceorig = 0 then 1
+                else 0 end) * 100 / count(*) as fraud_percentage,
+       sum(case when isfraud = 0 and
+                     newbalanceorig = 0 then 1
+                else 0 end) * 100 / count(*) as non_fraud_percentage
+FROM   paysim_table.base_data"
+"what % of frauds v/s non fraud transactions empty the origin account to 0 balance. Plot bar chart","SELECT 'fraud' as type,
+       sum(case when isfraud = 1 and
+                     newbalanceorig = 0 then 1
+                else 0 end) * 100 / sum(case when isfraud = 1 then 1
+                else 0 end) as fraud_percentage
+FROM   paysim_table.base_data
+UNION
+SELECT 'non fraud' as type,
+       sum(case when isfraud = 0 and
+                     newbalanceorig = 0 then 1
+                else 0 end) * 100 / sum(case when isfraud = 0 then 1
+                else 0 end) as non_fraud_percentage
+FROM   paysim_table.base_data"
+"what are the distribution of payment methods for all the frauds ?","SELECT type,
+       count(*) as num_frauds
+FROM   paysim_table.base_data
+WHERE  isfraud = 1
+GROUP BY type;"
+"what are 5 reciever accounts with most number of frauds ?","SELECT namedest,
+       count(*) as frauds
+FROM   paysim_table.base_data
+WHERE  isfraud = 1
+GROUP BY 1
+ORDER BY frauds desc limit 5"
+"is there a name which has more than 1 fraud ?","    SELECT nameorig, COUNT(*) as frauds
+    FROM paysim_table.base_data
+    WHERE  isfraud = 1
+    GROUP BY 1 
+    HAVING COUNT(*) > 1 
+    ORDER BY frauds DESC"
+"what is the percentage fraud in all transactions ?","SELECT count(case when isfraud = 1 then 1 end) * 100 / count(*) as fraud_percentage
+FROM   paysim_table.base_data;"
+"the % of frauds with  origin accounts that start with letter C vs letter M","SELECT sum(case when isfraud = 1 and
+                     substr(nameorig, 1, 1) = 'C' then 1
+                else 0 end) * 100 / sum(case when isfraud = 1 then 1
+                else 0 end) as c_fraud_percentage,
+       sum(case when isfraud = 1 and
+                     substr(nameorig, 1, 1) = 'M' then 1
+                else 0 end) * 100 / sum(case when isfraud = 1 then 1
+                else 0 end) as m_fraud_percentage
+FROM   paysim_table.base_data"
+"what are the %distribution of across each payment methods for all the frauds ?","SELECT type,
+       count(*) * 100 / (SELECT count(*)
+                  FROM   paysim_table.base_data
+                  WHERE  isfraud = 1) as fraud_percentage
+FROM   paysim_table.base_data
+WHERE  isfraud = 1
+GROUP BY type;"
+"what % of frauds v/s non fraud transactions leave the new balance of the origin account to 0. Plot bar chart with labels","SELECT 'fraud' as type,
+       sum(case when isfraud = 1 and
+                     newbalanceorig = 0 then 1
+                else 0 end) * 100 / sum(case when isfraud = 1 then 1
+                else 0 end) as fraud_percentage
+FROM   paysim_table.base_data
+UNION
+SELECT 'non fraud' as type,
+       sum(case when isfraud = 0 and
+                     newbalanceorig = 0 then 1
+                else 0 end) * 100 / sum(case when isfraud = 0 then 1
+                else 0 end) as non_fraud_percentage
+FROM   paysim_table.base_data"
+"What are the number of frauds in the data","SELECT count(*) as num_frauds
+FROM   paysim_table.base_data
+WHERE  isfraud = 1;"
+"what % of frauds go to an origin account to with 0 old balance?","SELECT count(*) * 100 / (SELECT count(*)
+                         FROM   paysim_table.base_data
+                         WHERE  isfraud = 1) as fraud_percentage
+FROM   paysim_table.base_data
+WHERE  isfraud = 1
+   and oldbalanceorg = 0;"
+"what are the 5 highest amounted fraud transactions ?","SELECT amount,
+       nameorig,
+       namedest
+FROM   paysim_table.base_data
+WHERE  isfraud = 1
+ORDER BY amount desc limit 5;"
+"What are the 10 countries with highest government debt in 2008 ? ","SELECT geo_name,
+       value
+FROM   data_commons_public_data.cybersyn.timeseries join data_commons_public_data.cybersyn.geo_index
+        ON timeseries.geo_id = geo_index.id
+WHERE  variable_name = 'Amount of Debt: Government'
+   and date = '2008-01-01'
+   and geo_id like 'country/%'
+ORDER BY value desc limit 10;"
+"what % of frauds v/s non fraud transactions empty the origin account to 0 balance. Plot fraud percentage as bar chart","SELECT 'fraud' as type,
+       sum(case when isfraud = 1 and
+                     newbalanceorig = 0 then 1
+                else 0 end) * 100 / sum(case when isfraud = 1 then 1
+                else 0 end) as fraud_percentage
+FROM   paysim_table.base_data
+UNION
+SELECT 'non fraud' as type,
+       sum(case when isfraud = 0 and
+                     newbalanceorig = 0 then 1
+                else 0 end) * 100 / sum(case when isfraud = 0 then 1
+                else 0 end) as non_fraud_percentage
+FROM   paysim_table.base_data"
+"what are the 5 highest amounted non fraud transactions ?","SELECT amount,
+       nameorig,
+       namedest
+FROM   paysim_table.base_data
+WHERE  isfraud = 0
+ORDER BY amount desc limit 5;"
+"what name has created the most number of frauds ?","SELECT nameorig, COUNT(*) as frauds
+FROM paysim_table.base_data
+WHERE  isfraud = 1
+GROUP BY 1 
+ORDER BY frauds DESC
+LIMIT 1 "
+"give the % transactions that are frauds across the type of payments?","SELECT type,
+       count(case when isfraud = 1 then 1 end) * 100 / count(*) as fraud_percentage
+FROM   paysim_table.base_data
+GROUP BY type;"
+"What are the first 10 rows in the BASE_DATA table?","SELECT *
+FROM paysim_table.base_data limit 10;"
+"what is destination account received most amount of transfer through frauds ?","SELECT namedest,
+       sum(amount) as total_amount
+FROM   paysim_table.base_data
+WHERE  isfraud = 1
+GROUP BY namedest
+ORDER BY total_amount desc limit 1;"
+"what % of frauds v/s non fraud transactions leave the new balance of the origin account to 0.","SELECT sum(case when isfraud = 1 and
+                     newbalanceorig = 0 then 1
+                else 0 end) * 100 / sum(case when isfraud = 1 then 1
+                else 0 end) as fraud_percentage,
+       sum(case when isfraud = 0 and
+                     newbalanceorig = 0 then 1
+                else 0 end) * 100 / sum(case when isfraud = 0 then 1
+                else 0 end) as non_fraud_percentage
+FROM   paysim_table.base_data;"
+"what is the mean, median, 95th percentile, and 99th percentile amount transferred via a transaction if it fraud v/s when it's not fraud","SELECT isfraud,
+       avg(amount) as mean_amount,
+       percentile_cont(0.5) within group (ORDER BY amount) as median_amount,
+       percentile_cont(0.95) within group (ORDER BY amount) as percentile_95th,
+       percentile_cont(0.99) within group (ORDER BY amount) as percentile_99th
+FROM   paysim_table.base_data
+GROUP BY isfraud"
+"what is the mean, median, 95th percentile, and 99th percentile amount transferred via fraud vs not fraud ?","SELECT avg(amount) as mean_amount,
+       percentile_cont(0.5) within group (ORDER BY amount) as median_amount,
+       percentile_cont(0.95) within group (ORDER BY amount) as percentile_95th,
+       percentile_cont(0.99) within group (ORDER BY amount) as percentile_99th
+FROM   paysim_table.base_data
+WHERE  isfraud = 1;"
+"what % of frauds v/s non fraud transactions leave the new balance of the origin account to 0. Plot bar chart","SELECT 'fraud' as type,
+       sum(case when isfraud = 1 and
+                     newbalanceorig = 0 then 1
+                else 0 end) * 100 / sum(case when isfraud = 1 then 1
+                else 0 end) as fraud_percentage
+FROM   paysim_table.base_data
+UNION
+SELECT 'non fraud' as type,
+       sum(case when isfraud = 0 and
+                     newbalanceorig = 0 then 1
+                else 0 end) * 100 / sum(case when isfraud = 0 then 1
+                else 0 end) as non_fraud_percentage
+FROM   paysim_table.base_data;"
+"the % of frauds with destination accounts that start with letter C vs letter M\","SELECT sum(case when isfraud = 1 and
+                     substr(namedest, 1, 1) = 'C' then 1
+                else 0 end) * 100 / sum(case when isfraud = 1 then 1
+                else 0 end) as c_fraud_percentage,
+       sum(case when isfraud = 1 and
+                     substr(namedest, 1, 1) = 'M' then 1
+                else 0 end) * 100 / sum(case when isfraud = 1 then 1
+                else 0 end) as m_fraud_percentage
+FROM   paysim_table.base_data"
+"what % of frauds leave the new balance of the origin account to 0?","SELECT count(*) * 100 / (SELECT count(*)
+                         FROM   paysim_table.base_data
+                         WHERE  isfraud = 1) as fraud_percentage
+FROM   paysim_table.base_data
+WHERE  isfraud = 1
+   and newbalanceorig = 0;"
+"what is the % of fraud  is flagged as fraud  ?","SELECT count(*) * 100 / (SELECT count(*)
+                         FROM   paysim_table.base_data
+                         WHERE  isfraud = 1) as fraud_percentage
+FROM   paysim_table.base_data
+WHERE  isfraud = 1
+   and isflaggedfraud = 1;"
+"what are amounts of 5 biggest frauds that left the origin account at 0 balance ?","SELECT amount
+FROM   paysim_table.base_data
+WHERE  isfraud = 1
+   and newbalanceorig = 0
+ORDER BY amount desc limit 5;"

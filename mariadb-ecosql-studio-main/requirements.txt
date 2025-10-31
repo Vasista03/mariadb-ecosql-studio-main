@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+vanna
+sqlglot
+streamlit
+pymysql
+requests
+python-dotenv
+openai
+pymysql
+sqlalchemy

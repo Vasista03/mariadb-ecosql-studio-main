@@ -1,0 +1,33 @@
+﻿"question","answer"
+"What are the daily costs for the last 30 days?","SELECT usage_date,
+       sum(usage_in_currency) as daily_cost
+FROM   snowflake.organization_usage.preview_usage_in_currency_daily
+WHERE  currency = 'USD'
+   and usage_date >= dateadd(day, -30, current_date())
+GROUP BY usage_date
+ORDER BY usage_date"
+"What are the first 10 rows in the USAGE_IN_CURRENCY_DAILY table?","SELECT ORGANIZATION_NAME, CONTRACT_NUMBER, ACCOUNT_NAME, ACCOUNT_LOCATOR, REGION, SERVICE_LEVEL, USAGE_DATE, USAGE_TYPE, CURRENCY, USAGE, USAGE_IN_CURRENCY, BALANCE_SOURCE
+FROM SNOWFLAKE.ORGANIZATION_USAGE.USAGE_IN_CURRENCY_DAILY
+LIMIT 10"
+"Total usage costs in dollars for the organization, broken down by account","SELECT account_name,
+       sum(usage_in_currency) as total_cost
+FROM   snowflake.organization_usage.preview_usage_in_currency_daily
+WHERE  currency = 'USD'
+GROUP BY account_name"
+"What is the daily cost by usage type?","SELECT usage_date,
+       usage_type,
+       sum(usage_in_currency) as daily_cost
+FROM   snowflake.organization_usage.preview_usage_in_currency_daily
+WHERE  currency = 'USD'
+GROUP BY usage_date, usage_type
+ORDER BY usage_date, daily_cost desc"
+"What are the first 10 rows in the PREVIEW_USAGE_IN_CURRENCY_DAILY table?","SELECT ORGANIZATION_NAME, CONTRACT_NUMBER, ACCOUNT_NAME, ACCOUNT_LOCATOR, REGION, SERVICE_LEVEL, USAGE_DATE, USAGE_TYPE, CURRENCY, USAGE, USAGE_IN_CURRENCY
+FROM SNOWFLAKE.ORGANIZATION_USAGE.PREVIEW_USAGE_IN_CURRENCY_DAILY
+LIMIT 10"
+"Daily usage cost by account","SELECT account_name,
+       usage_date,
+       sum(usage_in_currency) as daily_usage_cost
+FROM   snowflake.organization_usage.preview_usage_in_currency_daily
+WHERE  currency = 'USD'
+GROUP BY account_name, usage_date
+ORDER BY usage_date, daily_usage_cost desc"
