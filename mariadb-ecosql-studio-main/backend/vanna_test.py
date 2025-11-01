@@ -73,16 +73,32 @@ def run_tests():
         except Exception as e:
             print("⚠️ SQL Execution Error:", repr(e))
             results.append((q, sql, f"ERROR: {e}"))
-
-    print("\n" + "="*80)
-    print("✅ TEST SUMMARY")
-    for q, sql, status, *rest in results:
-        print(f"• {q[:50]:50s} → {status}")
-    print("="*80)
-
+            
+            #Step 2: Run EXPLAIN automatically for the same query
+            
+            # ---------------------------------------------------
+            
+            try:
+                with engine.connect() as conn:
+                    explain_sql = f"EXPLAIN {sql.strip().rstrip(';')};"
+                    explain_df = pd.read_sql(explain_sql, conn)
+ 
+                print("\n🔍 Execution Plan (EXPLAIN):")
+                print(explain_df.to_string(index=False))
+ 
+            except Exception as e_exp:
+                print(f"⚠️ Could not run EXPLAIN: {e_exp}")
+ 
+        except Exception as e:
+            print("⚠️ SQL Execution Error:", repr(e))
+            results.append((q, sql, f"ERROR: {e}"))
+ 
+    # ---------------------------------------------------
+    # ✅ Summary
+    # ---------------------------------------------------
     return results
-
-
+ 
+ 
 # ---------------------------------------------------------------
 # 🏁 MAIN ENTRY POINT
 # ---------------------------------------------------------------
